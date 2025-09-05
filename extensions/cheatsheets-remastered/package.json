@@ -117,10 +117,12 @@
   },
   "devDependencies": {
     "@raycast/eslint-config": "^2.0.4",
-    "@types/node": "22.13.10",
+    "@types/node": "^22.13.10",
     "@types/react": "19.0.10",
     "eslint": "^9.22.0",
+    "gray-matter": "^4.0.3",
     "prettier": "^3.5.3",
+    "ts-node": "^10.9.2",
     "typescript": "^5.8.2"
   },
   "scripts": {
@@ -129,6 +131,7 @@
     "fix-lint": "ray lint --fix",
     "lint": "ray lint",
     "normalize:icons": "node scripts/normalize-icons.js",
+    "audit:cheatsheets": "ts-node scripts/audit-cheatsheets.ts",
     "publish": "npx @raycast/api@latest publish"
   }
 }
