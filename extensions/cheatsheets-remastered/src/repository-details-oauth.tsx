@@ -10,26 +10,23 @@ function RepositoryDetailsComponent({ repo, onUpdated }: { repo: UserRepository;
   const { push } = useNavigation();
   const [isLoading, setIsLoading] = useState(false);
   const [cheatsheets, setCheatsheets] = useState<RepositoryCheatsheet[]>([]);
-  const [cheatsheetsLoading, setCheatsheetsLoading] = useState(true);
   const { token } = getAccessToken();
 
   useEffect(() => {
     // Record access when component mounts
     Service.recordRepositoryAccess(repo.id);
     
-    // Load cheatsheets for this repository
+    // Load cheatsheets for this repository immediately
     loadCheatsheets();
   }, [repo.id]);
 
   const loadCheatsheets = async () => {
     try {
-      setCheatsheetsLoading(true);
       const sheets = await Service.getRepositoryCheatsheets(repo.id);
       setCheatsheets(sheets);
     } catch (error) {
       console.error("Failed to load cheatsheets:", error);
-    } finally {
-      setCheatsheetsLoading(false);
+      setCheatsheets([]);
     }
   };
 
@@ -136,7 +133,7 @@ No cheatsheets found. Use the **Sync Repository** action to fetch cheatsheet fil
           <Detail.Metadata.Separator />
           <Detail.Metadata.Label 
             title="Cheatsheets" 
-            text={cheatsheetsLoading ? "Loading..." : `${cheatsheets.length} found`}
+            text={`${cheatsheets.length} found`}
             icon={Icon.Document}
           />
         </Detail.Metadata>
@@ -150,12 +147,7 @@ No cheatsheets found. Use the **Sync Repository** action to fetch cheatsheet fil
               icon={Icon.Globe}
               shortcut={{ modifiers: ["cmd"], key: "o" }}
             />
-            <Action.OpenInBrowser
-              title={`View ${repo.owner}'s Profile`}
-              url={`https://github.com/${repo.owner}`}
-              icon={{ source: `https://github.com/${repo.owner}.png`, fallback: Icon.Person }}
-              shortcut={{ modifiers: ["cmd"], key: "g" }}
-            />
+
             <Action.CopyToClipboard
               title="Copy URL"
               content={repo.url}
