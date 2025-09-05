@@ -23,11 +23,8 @@ import { showFailureToast, useFrecencySorting } from "@raycast/utils";
 import Service, { CustomCheatsheet, OfflineCheatsheet, FavoriteCheatsheet, RepositoryCheatsheet } from "./service";
 import type { File as ServiceFile } from "./service";
 import { stripFrontmatter, stripTemplateTags, formatTables } from "./utils";
-// GitHub icon for repository cheatsheets
-const githubIcon: Image.ImageLike = {
-  source: "assets/github.svg",
-  tintColor: "#FFFFFF",
-};
+// GitHub icon for repository cheatsheets - using built-in icon
+const githubIcon = Icon.Code;
 
 // (removed unused getCheatsheetIcon)
 
@@ -471,6 +468,30 @@ function Command() {
       }
     >
       <List.Section title="Overview" subtitle={`${searchResults.length} items • ${filter} • ${sort}`} />
+
+      {error && (
+        <List.Section title="Error" subtitle="Failed to load cheatsheets">
+          <List.Item
+            title="Error"
+            subtitle={error}
+            icon={Icon.ExclamationMark}
+            actions={
+              <ActionPanel>
+                <Action title="Retry" icon={Icon.ArrowClockwise} onAction={loadData} />
+              </ActionPanel>
+            }
+          />
+        </List.Section>
+      )}
+
+      {/* Debug section - remove in production */}
+      <List.Section title="Debug" subtitle="Data counts">
+        <List.Item title={`Sheets: ${sheets.length}`} icon={Icon.Document} />
+        <List.Item title={`Custom: ${customSheets.length}`} icon={Icon.Tag} />
+        <List.Item title={`Repository: ${repositorySheets.length}`} icon={githubIcon} />
+        <List.Item title={`Unified: ${unifiedList.length}`} icon={Icon.List} />
+        <List.Item title={`Search Results: ${searchResults.length}`} icon={Icon.MagnifyingGlass} />
+      </List.Section>
 
       {searchResults.length === 0 && !isLoading && !error && (
         <List.EmptyView
