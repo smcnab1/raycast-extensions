@@ -15,6 +15,19 @@ function ManageReposWithAuth() {
   const { push } = useNavigation();
   const { token } = getAccessToken();
 
+  function formatRelativeTime(timestamp: number): string {
+    const now = Date.now();
+    const diff = now - timestamp;
+    const minutes = Math.floor(diff / (1000 * 60));
+    const hours = Math.floor(diff / (1000 * 60 * 60));
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+
+    if (minutes < 1) return "now";
+    if (minutes < 60) return `${minutes}m`;
+    if (hours < 24) return `${hours}h`;
+    return `${days}d`;
+  }
+
   useEffect(() => {
     loadRepos();
   }, []);
@@ -181,7 +194,7 @@ function ManageReposWithAuth() {
               { text: repo.owner, icon: { source: `https://github.com/${repo.owner}.png`, fallback: Icon.Person } },
               { text: repo.defaultBranch, icon: Icon.Code },
               ...(repo.subdirectory ? [{ text: repo.subdirectory, icon: Icon.Folder }] : []),
-              ...(repo.lastSyncedAt ? [{ date: new Date(repo.lastSyncedAt), icon: Icon.ArrowClockwise }] : []),
+              ...(repo.lastSyncedAt ? [{ text: formatRelativeTime(repo.lastSyncedAt), icon: Icon.ArrowClockwise }] : []),
             ]}
             actions={
               <ActionPanel>

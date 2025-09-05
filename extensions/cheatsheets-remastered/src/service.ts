@@ -1757,7 +1757,9 @@ class Service {
       const repos = await this.getUserRepositories();
       const repoIndex = repos.findIndex((r) => r.id === repo.id);
       if (repoIndex !== -1) {
-        repos[repoIndex].lastSyncedAt = Date.now();
+        const syncTime = Date.now();
+        repos[repoIndex].lastSyncedAt = syncTime;
+        console.log(`Updated lastSyncedAt for ${repo.owner}/${repo.name} to:`, new Date(syncTime).toISOString());
         await LocalStorage.setItem("user-repositories", JSON.stringify(repos));
       }
 
