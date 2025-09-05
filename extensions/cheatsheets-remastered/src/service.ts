@@ -57,6 +57,17 @@ interface UserRepository {
   lastSyncedAt?: number; // Track when repository was last synced
 }
 
+interface RepositoryCheatsheet {
+  id: string;
+  repositoryId: string; // Reference to UserRepository
+  slug: string; // Original file path without .md
+  title: string; // Derived from filename or first heading
+  content: string;
+  filePath: string; // Original path in repository
+  syncedAt: number;
+  lastAccessedAt?: number;
+}
+
 // Configure axios with better defaults and retry logic
 const listClient = axios.create({
   baseURL: `https://api.github.com/repos/${OWNER}/${REPO}/git/trees`,
@@ -1524,6 +1535,47 @@ class Service {
         return isMarkdown && isInSubdir && isNotAdminFile;
       });
 
+      // Clear existing cheatsheets for this repository
+      await this.deleteRepositoryCheatsheets(repo.id);
+
+      let success = 0;
+      let failed = 0;
+
+      // Fetch content for each markdown file
+      for (const file of markdownFiles) {
+        try {
+          const contentUrl = `https://raw.githubusercontent.com/${repo.owner}/${repo.name}/${repo.defaultBranch}/${file.path}`;
+          const contentResponse = await axios.get(contentUrl, {
+            headers: {
+              Authorization: `Bearer ${accessToken}`,
+              Accept: "text/plain",
+              "User-Agent": "Cheatsheets-Remastered-Raycast",
+            },
+            timeout: 10000,
+          });
+
+          const content = contentResponse.data;
+          const slug = file.path.replace('.md', '');
+          const title = this.extractTitleFromContent(content) || this.generateTitleFromSlug(slug);
+          
+          const cheatsheet: RepositoryCheatsheet = {
+            id: `repo-${repo.id}-${slug}-${Date.now()}`,
+            repositoryId: repo.id,
+            slug,
+            title,
+            content,
+            filePath: file.path,
+            syncedAt: Date.now(),
+          };
+
+          await this.saveRepositoryCheatsheet(cheatsheet);
+          success++;
+        } catch (error) {
+          console.warn(`Failed to fetch content for ${file.path}:`, error);
+          failed++;
+        }
+      }
+
       // Update repository with sync timestamp
       const repos = await this.getUserRepositories();
       const repoIndex = repos.findIndex((r) => r.id === repo.id);
@@ -1535,10 +1587,10 @@ class Service {
       showToast({
         style: Toast.Style.Success,
         title: "Sync Complete",
-        message: `Found ${markdownFiles.length} cheatsheet files in ${repo.owner}/${repo.name}`,
+        message: `Synced ${success} cheatsheets from ${repo.owner}/${repo.name}${failed > 0 ? ` (${failed} failed)` : ''}`,
       });
 
-      return { success: markdownFiles.length, failed: 0 };
+      return { success, failed };
     } catch (error) {
       console.error("Failed to sync repository files:", error);
       showToast({
@@ -1548,6 +1600,28 @@ class Service {
       });
       throw error;
     }
+  }
+
+  // Helper method to extract title from markdown content
+  private static extractTitleFromContent(content: string): string | null {
+    const lines = content.split('\n');
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (trimmed.startsWith('# ')) {
+        return trimmed.substring(2).trim();
+      }
+    }
+    return null;
+  }
+
+  // Helper method to generate title from slug
+  private static generateTitleFromSlug(slug: string): string {
+    return slug
+      .split('/')
+      .pop()!
+      .split('-')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
   }
 
   static async getUserRepository(id: string): Promise<UserRepository | null> {
@@ -1590,6 +1664,74 @@ class Service {
       return [];
     }
   }
+
+  // Repository cheatsheet management methods
+  static async getRepositoryCheatsheets(repositoryId?: string): Promise<RepositoryCheatsheet[]> {
+    try {
+      const cheatsheetsJson = await LocalStorage.getItem<string>("repository-cheatsheets");
+      const cheatsheets = cheatsheetsJson ? JSON.parse(cheatsheetsJson) : [];
+      
+      if (repositoryId) {
+        return cheatsheets.filter((sheet: RepositoryCheatsheet) => sheet.repositoryId === repositoryId);
+      }
+      
+      return cheatsheets;
+    } catch (error) {
+      console.warn("Failed to load repository cheatsheets:", error);
+      return [];
+    }
+  }
+
+  static async saveRepositoryCheatsheet(cheatsheet: RepositoryCheatsheet): Promise<void> {
+    try {
+      const cheatsheets = await this.getRepositoryCheatsheets();
+      const existingIndex = cheatsheets.findIndex((sheet) => sheet.id === cheatsheet.id);
+      
+      if (existingIndex >= 0) {
+        cheatsheets[existingIndex] = cheatsheet;
+      } else {
+        cheatsheets.push(cheatsheet);
+      }
+      
+      await LocalStorage.setItem("repository-cheatsheets", JSON.stringify(cheatsheets));
+    } catch (error) {
+      console.error("Failed to save repository cheatsheet:", error);
+      throw error;
+    }
+  }
+
+  static async deleteRepositoryCheatsheets(repositoryId: string): Promise<void> {
+    try {
+      const cheatsheets = await this.getRepositoryCheatsheets();
+      const filtered = cheatsheets.filter((sheet: RepositoryCheatsheet) => sheet.repositoryId !== repositoryId);
+      await LocalStorage.setItem("repository-cheatsheets", JSON.stringify(filtered));
+    } catch (error) {
+      console.error("Failed to delete repository cheatsheets:", error);
+      throw error;
+    }
+  }
+
+  static async getRepositoryCheatsheet(id: string): Promise<RepositoryCheatsheet | null> {
+    try {
+      const cheatsheets = await this.getRepositoryCheatsheets();
+      return cheatsheets.find((sheet: RepositoryCheatsheet) => sheet.id === id) || null;
+    } catch (error) {
+      console.error("Failed to get repository cheatsheet:", error);
+      return null;
+    }
+  }
+
+  static async recordRepositoryCheatsheetAccess(id: string): Promise<void> {
+    try {
+      const cheatsheet = await this.getRepositoryCheatsheet(id);
+      if (cheatsheet) {
+        cheatsheet.lastAccessedAt = Date.now();
+        await this.saveRepositoryCheatsheet(cheatsheet);
+      }
+    } catch (error) {
+      console.warn("Failed to record repository cheatsheet access:", error);
+    }
+  }
 }
 
 // Helper function to get sheets from files
@@ -1608,4 +1750,4 @@ function getSheets(files: File[]): string[] {
 }
 
 export default Service;
-export type { File, CustomCheatsheet, Preferences, OfflineCheatsheet, FavoriteCheatsheet, UserRepository };
+export type { File, CustomCheatsheet, Preferences, OfflineCheatsheet, FavoriteCheatsheet, UserRepository, RepositoryCheatsheet };
