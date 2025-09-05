@@ -23,8 +23,8 @@ import { showFailureToast, useFrecencySorting } from "@raycast/utils";
 import Service, { CustomCheatsheet, OfflineCheatsheet, FavoriteCheatsheet, RepositoryCheatsheet } from "./service";
 import type { File as ServiceFile } from "./service";
 import { stripFrontmatter, stripTemplateTags, formatTables } from "./utils";
-// GitHub icon for repository cheatsheets - using built-in icon
-const githubIcon = Icon.Code;
+// GitHub icon for repository cheatsheets
+const githubIcon = "github.png";
 
 // (removed unused getCheatsheetIcon)
 
