@@ -86,6 +86,147 @@ const TECH_TO_ICON_MAP: { [key: string]: string } = {
   'zsh': 'zsh.svg',
 };
 
+// Smart icon matching patterns for better coverage
+const ICON_PATTERNS: Array<{ pattern: RegExp; icon: string; description: string }> = [
+  // GitHub-related
+  { pattern: /^gh-|github|git-/, icon: 'github.svg', description: 'GitHub-related' },
+  
+  // CSS-related
+  { pattern: /^css-|css/, icon: 'css.svg', description: 'CSS-related' },
+  
+  // HTML-related
+  { pattern: /^html-|html/, icon: 'html.svg', description: 'HTML-related' },
+  
+  // JavaScript/JS-related
+  { pattern: /^js-|javascript|jquery/, icon: 'javascript.svg', description: 'JavaScript-related' },
+  
+  // Node.js-related
+  { pattern: /^nodejs-|node/, icon: 'node.svg', description: 'Node.js-related' },
+  
+  // Git-related
+  { pattern: /^git-|git/, icon: 'git.svg', description: 'Git-related' },
+  
+  // Docker-related
+  { pattern: /^docker-|docker/, icon: 'docker.svg', description: 'Docker-related' },
+  
+  // Rails-related
+  { pattern: /^rails-|rails/, icon: 'ruby.svg', description: 'Rails-related' },
+  
+  // Phoenix-related
+  { pattern: /^phoenix-|phoenix/, icon: 'elixir.svg', description: 'Phoenix-related' },
+  
+  // React-related
+  { pattern: /^react-|react/, icon: 'react.svg', description: 'React-related' },
+  
+  // Vue-related
+  { pattern: /^vue-|vue/, icon: 'vue.svg', description: 'Vue-related' },
+  
+  // Express-related
+  { pattern: /^express|koa|fastify/, icon: 'node.svg', description: 'Node.js frameworks' },
+  
+  // Testing frameworks
+  { pattern: /^mocha|jasmine|tape|qunit|jest/, icon: 'javascript.svg', description: 'Testing frameworks' },
+  
+  // Build tools
+  { pattern: /^webpack|rollup|browserify|gulp/, icon: 'javascript.svg', description: 'Build tools' },
+  
+  // CSS frameworks
+  { pattern: /^bootstrap|bulma|tailwind/, icon: 'css.svg', description: 'CSS frameworks' },
+  
+  // Database-related
+  { pattern: /^mysql|postgresql|mongodb|redis|sqlite/, icon: 'database.svg', description: 'Database-related' },
+  
+  // Terminal/Shell-related
+  { pattern: /^bash|zsh|fish|sh-|terminal/, icon: 'terminal.svg', description: 'Terminal-related' },
+  
+  // Vim-related
+  { pattern: /^vim-|vim/, icon: 'vim.svg', description: 'Vim-related' },
+  
+  // Emacs-related
+  { pattern: /^emacs|spacemacs/, icon: 'emacs.svg', description: 'Emacs-related' },
+  
+  // Python-related
+  { pattern: /^python|py-|django|flask/, icon: 'python.svg', description: 'Python-related' },
+  
+  // PHP-related
+  { pattern: /^php|laravel|symfony/, icon: 'php.svg', description: 'PHP-related' },
+  
+  // Ruby-related
+  { pattern: /^ruby|rb-|gem/, icon: 'ruby.svg', description: 'Ruby-related' },
+  
+  // Go-related
+  { pattern: /^go|golang/, icon: 'go.svg', description: 'Go-related' },
+  
+  // Rust-related
+  { pattern: /^rust|rs-/, icon: 'rust.svg', description: 'Rust-related' },
+  
+  // Java-related
+  { pattern: /^java|kotlin|spring/, icon: 'java.svg', description: 'Java-related' },
+  
+  // Swift-related
+  { pattern: /^swift|ios/, icon: 'swift.svg', description: 'Swift-related' },
+  
+  // AWS-related
+  { pattern: /^aws|awscli/, icon: 'aws.svg', description: 'AWS-related' },
+  
+  // Kubernetes-related
+  { pattern: /^k8s|kubernetes/, icon: 'kubernetes.svg', description: 'Kubernetes-related' },
+  
+  // Terraform-related
+  { pattern: /^terraform|tf-/, icon: 'terraform.svg', description: 'Terraform-related' },
+  
+  // Ansible-related
+  { pattern: /^ansible/, icon: 'ansible.svg', description: 'Ansible-related' },
+  
+  // Chef-related
+  { pattern: /^chef/, icon: 'chef.svg', description: 'Chef-related' },
+  
+  // Docker-related
+  { pattern: /^docker/, icon: 'docker.svg', description: 'Docker-related' },
+  
+  // Nginx-related
+  { pattern: /^nginx/, icon: 'nginx.svg', description: 'Nginx-related' },
+  
+  // MySQL-related
+  { pattern: /^mysql/, icon: 'mysql.svg', description: 'MySQL-related' },
+  
+  // PostgreSQL-related
+  { pattern: /^postgresql|postgres/, icon: 'postgresql.svg', description: 'PostgreSQL-related' },
+  
+  // MongoDB-related
+  { pattern: /^mongodb|mongo/, icon: 'mongodb.svg', description: 'MongoDB-related' },
+  
+  // Redis-related
+  { pattern: /^redis/, icon: 'redis.svg', description: 'Redis-related' },
+  
+  // SQL-related
+  { pattern: /^sql/, icon: 'sql.svg', description: 'SQL-related' },
+  
+  // SSH-related
+  { pattern: /^ssh|scp/, icon: 'ssh.svg', description: 'SSH-related' },
+  
+  // Curl-related
+  { pattern: /^curl|httpie/, icon: 'curl.svg', description: 'HTTP clients' },
+  
+  // Grep-related
+  { pattern: /^grep|sed|awk/, icon: 'grep.svg', description: 'Text processing' },
+  
+  // Make-related
+  { pattern: /^make|makefile/, icon: 'make.svg', description: 'Make-related' },
+  
+  // NPM-related
+  { pattern: /^npm|yarn|pnpm/, icon: 'npm.svg', description: 'Package managers' },
+  
+  // Linux-related
+  { pattern: /^linux|ubuntu|debian/, icon: 'linux.svg', description: 'Linux-related' },
+  
+  // macOS-related
+  { pattern: /^mac|macos|osx/, icon: 'mac.svg', description: 'macOS-related' },
+  
+  // Terminal-related
+  { pattern: /^tmux|screen/, icon: 'tmux.svg', description: 'Terminal multiplexers' },
+];
+
 function getActiveCheatsheets(): CheatsheetMetadata[] {
   const cheatsheetsDir = path.join(__dirname, '..', 'assets', 'cheatsheets');
   const indexPath = path.join(cheatsheetsDir, 'index.json');
@@ -110,6 +251,29 @@ function getExistingIcons(): string[] {
     .sort();
 }
 
+function findIconForCheatsheet(cheatsheet: CheatsheetMetadata, existingIcons: string[]): string | null {
+  // First, try direct tech mapping
+  const directIcon = TECH_TO_ICON_MAP[cheatsheet.tech];
+  if (directIcon && existingIcons.includes(directIcon)) {
+    return directIcon;
+  }
+  
+  // Try pattern matching
+  for (const pattern of ICON_PATTERNS) {
+    if (pattern.pattern.test(cheatsheet.tech) && existingIcons.includes(pattern.icon)) {
+      return pattern.icon;
+    }
+  }
+  
+  // Try direct filename match
+  const directMatch = `${cheatsheet.tech}.svg`;
+  if (existingIcons.includes(directMatch)) {
+    return directMatch;
+  }
+  
+  return null;
+}
+
 function analyzeIcons(): IconAnalysis {
   const activeCheatsheets = getActiveCheatsheets();
   const existingIcons = getExistingIcons();
@@ -118,25 +282,31 @@ function analyzeIcons(): IconAnalysis {
   
   const requiredIcons = new Set<string>();
   const missingIcons: string[] = [];
+  const iconUsage = new Map<string, string[]>(); // icon -> list of cheatsheets using it
   
   // Find required icons
   for (const cheatsheet of activeCheatsheets) {
-    const expectedIcon = TECH_TO_ICON_MAP[cheatsheet.tech];
-    if (expectedIcon) {
-      requiredIcons.add(expectedIcon);
-    } else {
-      // Check if there's a direct match
-      const directMatch = `${cheatsheet.tech}.svg`;
-      if (existingIcons.includes(directMatch)) {
-        requiredIcons.add(directMatch);
-      } else {
-        missingIcons.push(cheatsheet.tech);
+    const icon = findIconForCheatsheet(cheatsheet, existingIcons);
+    if (icon) {
+      requiredIcons.add(icon);
+      if (!iconUsage.has(icon)) {
+        iconUsage.set(icon, []);
       }
+      iconUsage.get(icon)!.push(cheatsheet.tech);
+    } else {
+      missingIcons.push(cheatsheet.tech);
     }
   }
   
   // Find unused icons
   const unusedIcons = existingIcons.filter(icon => !requiredIcons.has(icon));
+  
+  // Log icon usage for better understanding
+  console.log('📋 Icon Usage Summary:');
+  for (const [icon, cheatsheets] of iconUsage.entries()) {
+    console.log(`  ${icon}: ${cheatsheets.length} cheatsheets (${cheatsheets.slice(0, 3).join(', ')}${cheatsheets.length > 3 ? '...' : ''})`);
+  }
+  console.log('');
   
   return {
     required: Array.from(requiredIcons).sort(),
