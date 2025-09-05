@@ -1650,11 +1650,13 @@ class Service {
       const files = response.data.tree || [];
       
       // Filter markdown files and apply subdirectory filter
+      // Comprehensive exclusion system to ensure only valid cheatsheets are imported
       const markdownFiles = files.filter((file: any) => {
+        // Basic requirements
         const isMarkdown = file.path.endsWith('.md');
         const isInSubdir = !repo.subdirectory || file.path.startsWith(repo.subdirectory + '/');
         
-        // Skip non-cheatsheet files
+        // Admin and documentation file exclusions
         const isNotAdminFile = !file.path.match(/^(README|CONTRIBUTING|index|index@2016)/i);
         const isNotInGitHubDir = !file.path.startsWith('.github/');
         const isNotCodeOfConduct = !file.path.match(/code[_-]of[_-]conduct\.md$/i);
@@ -1671,6 +1673,11 @@ class Service {
         const isNotTodo = !file.path.match(/^(TODO|TASKS?)\.md$/i);
         const isNotInstallation = !file.path.match(/^(INSTALL|INSTALLATION)\.md$/i);
         const isNotGettingStarted = !file.path.match(/^(GETTING[_-]STARTED|QUICK[_-]START)\.md$/i);
+        
+        // Directory and file pattern exclusions (as per requirements)
+        const isNotInUnderscoreDir = !file.path.match(/(^|\/)_[^/]+/); // Exclude dirs starting with _
+        const isNotAtSymbolFile = !file.path.includes('@'); // Exclude files with @ in name
+        const isNotInUnderscoreFile = !file.path.match(/_[^/]*\.md$/); // Exclude files starting with _
         
         return isMarkdown && 
                isInSubdir && 
@@ -1689,7 +1696,10 @@ class Service {
                isNotRoadmap && 
                isNotTodo && 
                isNotInstallation && 
-               isNotGettingStarted;
+               isNotGettingStarted &&
+               isNotInUnderscoreDir &&
+               isNotAtSymbolFile &&
+               isNotInUnderscoreFile;
       });
 
       // Clear existing cheatsheets for this repository
@@ -1789,6 +1799,130 @@ class Service {
       .split('-')
       .map(word => word.charAt(0).toUpperCase() + word.slice(1))
       .join(' ');
+  }
+
+  // Test function to validate exclusion filters against sample repository patterns
+  static testExclusionFilters(): void {
+    const testFiles = [
+      // Valid cheatsheets (should pass)
+      { path: 'cheatsheets/git.md', type: 'blob' },
+      { path: 'docs/javascript.md', type: 'blob' },
+      { path: 'guides/react.md', type: 'blob' },
+      { path: 'tutorials/python.md', type: 'blob' },
+      
+      // Invalid files (should be excluded)
+      { path: 'README.md', type: 'blob' },
+      { path: 'LICENSE.md', type: 'blob' },
+      { path: 'CONTRIBUTING.md', type: 'blob' },
+      { path: '.github/README.md', type: 'blob' },
+      { path: '_includes/header.md', type: 'blob' },
+      { path: '_layouts/main.md', type: 'blob' },
+      { path: 'file@2023.md', type: 'blob' },
+      { path: 'index@2016.md', type: 'blob' },
+      { path: '_private.md', type: 'blob' },
+      { path: 'docs/_internal.md', type: 'blob' },
+      { path: 'CHANGELOG.md', type: 'blob' },
+      { path: 'SECURITY.md', type: 'blob' },
+      { path: 'AUTHORS.md', type: 'blob' },
+      { path: 'ROADMAP.md', type: 'blob' },
+      { path: 'TODO.md', type: 'blob' },
+      { path: 'INSTALL.md', type: 'blob' },
+      { path: 'GETTING_STARTED.md', type: 'blob' },
+      { path: '.github/workflows/ci.md', type: 'blob' },
+      { path: '.github/ISSUE_TEMPLATE/bug.md', type: 'blob' },
+      { path: 'pull_request_template.md', type: 'blob' },
+      { path: 'RELEASE_NOTES.md', type: 'blob' },
+      { path: 'CONTRIBUTORS.md', type: 'blob' },
+      { path: 'TASKS.md', type: 'blob' },
+      { path: 'INSTALLATION.md', type: 'blob' },
+      { path: 'QUICK_START.md', type: 'blob' },
+      
+      // Non-markdown files (should be excluded)
+      { path: 'script.js', type: 'blob' },
+      { path: 'style.css', type: 'blob' },
+      { path: 'package.json', type: 'blob' },
+      { path: 'config.yaml', type: 'blob' },
+    ];
+
+    const mockRepo = {
+      id: 'test-repo',
+      name: 'test-repo',
+      owner: 'test-owner',
+      defaultBranch: 'main',
+      subdirectory: undefined,
+    };
+
+    // Apply the same filtering logic
+    const filteredFiles = testFiles.filter((file: any) => {
+      const isMarkdown = file.path.endsWith('.md');
+      const isInSubdir = !mockRepo.subdirectory || file.path.startsWith(mockRepo.subdirectory + '/');
+      
+      // Admin and documentation file exclusions
+      const isNotAdminFile = !file.path.match(/^(README|CONTRIBUTING|index|index@2016)/i);
+      const isNotInGitHubDir = !file.path.startsWith('.github/');
+      const isNotCodeOfConduct = !file.path.match(/code[_-]of[_-]conduct\.md$/i);
+      const isNotLicense = !file.path.match(/^(LICENSE|LICENCE)\.md$/i);
+      const isNotChangelog = !file.path.match(/^(CHANGELOG|HISTORY)\.md$/i);
+      const isNotSecurity = !file.path.match(/^(SECURITY|SECURITY\.md)$/i);
+      const isNotContributing = !file.path.match(/^(CONTRIBUTING|CONTRIBUTING\.md)$/i);
+      const isNotPullRequestTemplate = !file.path.match(/pull_request_template\.md$/i);
+      const isNotIssueTemplate = !file.path.startsWith('.github/ISSUE_TEMPLATE/');
+      const isNotWorkflow = !file.path.startsWith('.github/workflows/');
+      const isNotReleaseNotes = !file.path.match(/^(RELEASES?|RELEASE[_-]NOTES?)\.md$/i);
+      const isNotAuthors = !file.path.match(/^(AUTHORS?|CONTRIBUTORS?)\.md$/i);
+      const isNotRoadmap = !file.path.match(/^(ROADMAP|ROAD[_-]MAP)\.md$/i);
+      const isNotTodo = !file.path.match(/^(TODO|TASKS?)\.md$/i);
+      const isNotInstallation = !file.path.match(/^(INSTALL|INSTALLATION)\.md$/i);
+      const isNotGettingStarted = !file.path.match(/^(GETTING[_-]STARTED|QUICK[_-]START)\.md$/i);
+      
+      // Directory and file pattern exclusions (as per requirements)
+      const isNotInUnderscoreDir = !file.path.match(/(^|\/)_[^/]+/);
+      const isNotAtSymbolFile = !file.path.includes('@');
+      const isNotInUnderscoreFile = !file.path.match(/_[^/]*\.md$/);
+      
+      return isMarkdown && 
+             isInSubdir && 
+             isNotAdminFile && 
+             isNotInGitHubDir && 
+             isNotCodeOfConduct && 
+             isNotLicense && 
+             isNotChangelog && 
+             isNotSecurity && 
+             isNotContributing && 
+             isNotPullRequestTemplate && 
+             isNotIssueTemplate && 
+             isNotWorkflow && 
+             isNotReleaseNotes && 
+             isNotAuthors && 
+             isNotRoadmap && 
+             isNotTodo && 
+             isNotInstallation && 
+             isNotGettingStarted &&
+             isNotInUnderscoreDir &&
+             isNotAtSymbolFile &&
+             isNotInUnderscoreFile;
+    });
+
+    console.log('Exclusion Filter Test Results:');
+    console.log(`Total test files: ${testFiles.length}`);
+    console.log(`Filtered files: ${filteredFiles.length}`);
+    console.log('Valid cheatsheets that passed:');
+    filteredFiles.forEach(file => console.log(`  ✅ ${file.path}`));
+    
+    const expectedValid = ['cheatsheets/git.md', 'docs/javascript.md', 'guides/react.md', 'tutorials/python.md'];
+    const actualValid = filteredFiles.map(f => f.path);
+    
+    console.log('\nValidation:');
+    expectedValid.forEach(expected => {
+      const found = actualValid.includes(expected);
+      console.log(`${found ? '✅' : '❌'} ${expected} - ${found ? 'PASS' : 'FAIL'}`);
+    });
+    
+    const unexpectedFiles = actualValid.filter(f => !expectedValid.includes(f));
+    if (unexpectedFiles.length > 0) {
+      console.log('\nUnexpected files that passed:');
+      unexpectedFiles.forEach(file => console.log(`  ⚠️  ${file}`));
+    }
   }
 
   static async getUserRepository(id: string): Promise<UserRepository | null> {
