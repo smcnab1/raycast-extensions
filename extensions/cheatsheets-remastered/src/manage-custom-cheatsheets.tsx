@@ -102,11 +102,10 @@ export default function ManageCustomCheatsheets() {
             key={sheet.id}
             title={sheet.title}
             subtitle={sheet.description || "No description"}
-            icon={Icon.Document}
+            icon={Icon.Box}
             accessories={[
-              { text: "Custom", icon: Icon.Tag },
               { date: new Date(sheet.updatedAt) },
-              ...(sheet.tags && sheet.tags.length > 0 ? [{ text: sheet.tags.join(", "), icon: Icon.Tag }] : []),
+              ...(sheet.tags && sheet.tags.length > 0 ? sheet.tags.slice(0, 3).map(tag => ({ text: tag, icon: Icon.Tag })) : []),
             ]}
             actions={
               <ActionPanel>

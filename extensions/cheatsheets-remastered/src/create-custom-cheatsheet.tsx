@@ -9,7 +9,6 @@ type CreateFormValues = {
   content: string;
   tags?: string;
   description?: string;
-  icon?: string;
 };
 
 // Custom hook for draft persistence
@@ -67,11 +66,6 @@ export function CreateCustomCheatsheet({ onCreated }: { onCreated?: () => void }
     updateValue: updateDescription,
     clearDraft: clearDescriptionDraft,
   } = useDraftPersistence("create-custom-sheet-description", "");
-  const {
-    value: icon,
-    updateValue: updateIcon,
-    clearDraft: clearIconDraft,
-  } = useDraftPersistence("create-custom-sheet-icon", "");
 
   const handleSubmit = async (values: CreateFormValues) => {
     try {
@@ -91,14 +85,13 @@ export function CreateCustomCheatsheet({ onCreated }: { onCreated?: () => void }
             .filter(Boolean)
         : [];
 
-      await Service.createCustomCheatsheet(values.title, values.content, tagsArray, values.description, values.icon);
+      await Service.createCustomCheatsheet(values.title, values.content, tagsArray, values.description);
 
       // Clear drafts after successful submission
       clearTitleDraft();
       clearContentDraft();
       clearTagsDraft();
       clearDescriptionDraft();
-      clearIconDraft();
 
       if (onCreated) {
         onCreated();
@@ -175,13 +168,6 @@ export function CreateCustomCheatsheet({ onCreated }: { onCreated?: () => void }
         placeholder="Enter optional description"
         value={description}
         onChange={updateDescription}
-      />
-      <Form.TextField
-        id="icon"
-        title="Icon (Optional)"
-        placeholder="Raycast Icon key (e.g., Code, Terminal, Cloud)"
-        value={icon}
-        onChange={updateIcon}
       />
     </Form>
   );

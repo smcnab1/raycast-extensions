@@ -48,35 +48,6 @@
   ],
   "preferences": [
     {
-      "name": "iconSource",
-      "type": "dropdown",
-      "required": true,
-      "title": "Icon Source",
-      "description": "Where to load cheatsheet icons from (built-in prefers local assets)",
-      "default": "builtin",
-      "data": [
-        {
-          "title": "Raycast System Icons",
-          "value": "raycast"
-        },
-        {
-          "title": "Built-in",
-          "value": "builtin"
-        },
-        {
-          "title": "Custom Directory",
-          "value": "custom"
-        }
-      ]
-    },
-    {
-      "name": "customIconDirectory",
-      "type": "directory",
-      "required": false,
-      "title": "Custom Icon Directory",
-      "description": "Folder with images like php.png, docker.svg, aws.png, etc."
-    },
-    {
       "name": "githubToken",
       "type": "password",
       "required": false,
@@ -131,8 +102,6 @@
     "fix-lint": "ray lint --fix",
     "lint": "ray lint",
     "normalize:icons": "node scripts/normalize-icons.js",
-    "audit:cheatsheets": "ts-node scripts/audit-cheatsheets.ts",
-    "audit:icons": "ts-node scripts/audit-icons.ts",
     "publish": "npx @raycast/api@latest publish"
   }
 }

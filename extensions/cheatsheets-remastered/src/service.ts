@@ -1,13 +1,11 @@
 import axios from "axios";
-import { LocalStorage, showToast, Toast, getPreferenceValues, Icon, Image, Color, environment } from "@raycast/api";
+import { LocalStorage, showToast, Toast, getPreferenceValues, Icon, environment } from "@raycast/api";
 import fs from "fs";
 import path from "path";
 import { DEFAULT_SHEET_METADATA, DefaultMetadata } from "./default-tags";
 
 interface ExtendedPreferences extends Preferences {
   githubToken?: string;
-  iconSource?: "raycast" | "custom";
-  customIconDirectory?: string;
 }
 
 const BRANCH = "master";
@@ -41,6 +39,14 @@ interface ViewRecord {
   title: string;
   count: number;
   lastViewedAt: number;
+}
+
+interface HiddenCheatsheet {
+  key: string; // `${type}:${slug}`
+  type: "custom" | "default" | "repository";
+  slug: string;
+  title: string;
+  hiddenAt: number;
 }
 
 interface UserRepository {
@@ -119,7 +125,6 @@ interface CustomCheatsheet {
   updatedAt: number;
   tags?: string[];
   description?: string;
-  iconKey?: string; // Raycast Icon key
 }
 
 // Type guards for untyped JSON
@@ -140,7 +145,6 @@ interface ImportedCheatsheetInput {
   content: string;
   tags?: string[];
   description?: string;
-  iconKey?: string;
   createdAt?: number;
   updatedAt?: number;
 }
@@ -730,118 +734,7 @@ class Service {
     );
   }
 
-  // Pick an icon for a default cheatsheet based on metadata iconKey or slug heuristics
-  static getDefaultIconKey(slug: string): string {
-    const md = this.getDefaultMetadata(slug);
-    if (md?.iconKey) return md.iconKey;
-    const key = slug.toLowerCase();
-    if (/((^|[-_/])js($|[-_/])|typescript|ts|react|vue|angular|svelte|graphql)/.test(key)) return "Code";
-    if (/(python|bash|zsh|fish|linux|shell|vim|tmux|sed|awk|grep|curl|ssh)/.test(key)) return "Terminal";
-    if (/(docker|kubernetes|git|github|box)/.test(key)) return "Box";
-    if (/(sql|postgres|mysql|sqlite|redis|mongo)/.test(key)) return "Document";
-    if (/(aws|cloud|terraform)/.test(key)) return "Cloud";
-    if (/(http|nginx)/.test(key)) return "Globe";
-    return "Document";
-  }
 
-  static iconForKey(key?: string): Icon {
-    switch ((key || "").toLowerCase()) {
-      case "code":
-        return Icon.Code;
-      case "terminal":
-        return Icon.Terminal;
-      case "document":
-        return Icon.Document;
-      case "cloud":
-        return Icon.Cloud;
-      case "globe":
-        return Icon.Globe;
-      case "box":
-        return Icon.Box;
-      case "gear":
-        return Icon.Gear;
-      case "window":
-        return Icon.Window;
-      case "keyboard":
-        return Icon.Keyboard;
-      case "link":
-        return Icon.Link;
-      case "star":
-        return Icon.Star;
-      case "stardisabled":
-      case "star_disabled":
-        return Icon.StarDisabled;
-      default:
-        return Icon.Document;
-    }
-  }
-
-  // Resolve icon for a slug or key considering preferences and bundled media
-  static resolveIconForSlug(slugOrKey: string): Image.ImageLike {
-    const prefs = this.getPreferences() as ExtendedPreferences;
-    const base = (slugOrKey.split("/").pop() || slugOrKey).toLowerCase();
-    const aliasBase = this.alias(base);
-    const isTerminal = this.isTerminalTool(base);
-    // Build candidate names from slug tokens + aliases, then base/alias, and finally terminal fallback
-    const tokenSet = new Set<string>();
-    for (const t of this.tokenize(slugOrKey)) {
-      if (t) tokenSet.add(t);
-      const a = this.alias(t);
-      if (a) tokenSet.add(a);
-    }
-    const tokenCandidates = Array.from(tokenSet);
-    const baseCandidates = [base, aliasBase].filter(Boolean);
-    const candidates = isTerminal
-      ? [...tokenCandidates, ...baseCandidates, "terminal"]
-      : [...tokenCandidates, ...baseCandidates];
-    if (prefs.iconSource === "raycast") {
-      return this.iconForKey(this.getDefaultIconKey(aliasBase));
-    }
-    if (prefs.iconSource === "custom" && prefs.customIconDirectory) {
-      for (const c of candidates) {
-        const png = path.join(prefs.customIconDirectory, `${c}.png`);
-        if (fs.existsSync(png)) return { source: png, tintColor: Color.PrimaryText };
-        const svg = path.join(prefs.customIconDirectory, `${c}.svg`);
-        if (fs.existsSync(svg)) return { source: svg, tintColor: Color.PrimaryText };
-      }
-    }
-    // Built-in media fallback
-    for (const c of candidates) {
-      const pPng = path.join(environment.assetsPath, `${c}.png`);
-      const pSvg = path.join(environment.assetsPath, `${c}.svg`);
-      if (fs.existsSync(pPng)) return { source: pPng, tintColor: Color.PrimaryText };
-      if (fs.existsSync(pSvg)) return { source: pSvg, tintColor: Color.PrimaryText };
-    }
-    // Finally, Raycast icon from metadata
-    return this.iconForKey(this.getDefaultIconKey(aliasBase));
-  }
-
-  private static alias(name: string): string {
-    if (name === "js" || name === "javascript") return "javascript";
-    if (name === "ts" || name === "typescript") return "typescript";
-    if (name === "nodejs" || name === "node") return "node";
-    if (name === "psql" || name === "postgresql") return "postgres";
-    if (name === "k8s" || name === "kubernetes") return "kubernetes";
-    if (name === "css" || name.startsWith("css-")) return "css";
-    if (name === "git" || name.startsWith("git-")) return "git";
-    if (name === "gh" || name.startsWith("gh-") || name === "github" || name.startsWith("github-")) return "github";
-    if (name === "angularjs" || name.startsWith("angularjs-")) return "angular";
-    return name;
-  }
-
-  private static isTerminalTool(name: string): boolean {
-    const key = name.toLowerCase();
-    return /(bash|zsh|fish|shell|^sh$|tmux|vim|emacs|sed|awk|grep|curl|ssh|npm|yarn|pnpm|nvm|brew|jq|make|^101$)/.test(
-      key,
-    );
-  }
-
-  private static tokenize(name: string): string[] {
-    const raw = (name || "").toLowerCase();
-    const tokens = raw.split(/[\s/_.-]+/).filter(Boolean);
-    // Filter out plain 'js' unless it's explicitly bounded by separators (handled in getDefaultIconKey)
-    return tokens.filter((t) => t !== "js");
-  }
 
   // Fast content search across default cheatsheets using GitHub code search
   static async searchDefaultContent(query: string): Promise<string[]> {
@@ -1097,7 +990,6 @@ class Service {
     content: string,
     tags?: string[],
     description?: string,
-    iconKey?: string,
   ): Promise<CustomCheatsheet> {
     try {
       // Validate input
@@ -1114,7 +1006,6 @@ class Service {
         updatedAt: Date.now(),
         tags: tags?.filter((tag) => tag.trim()),
         description: description?.trim(),
-        iconKey: iconKey?.trim() || undefined,
       };
 
       customSheets.push(newSheet);
@@ -1139,7 +1030,6 @@ class Service {
     content: string,
     tags?: string[],
     description?: string,
-    iconKey?: string,
   ): Promise<CustomCheatsheet | null> {
     try {
       if (!title.trim() || !content.trim()) {
@@ -1158,7 +1048,6 @@ class Service {
         updatedAt: Date.now(),
         tags: tags?.filter((tag) => tag.trim()),
         description: description?.trim(),
-        iconKey: iconKey?.trim() || customSheets[index].iconKey,
       };
 
       await LocalStorage.setItem("custom-cheatsheets", JSON.stringify(customSheets));
@@ -1252,7 +1141,6 @@ class Service {
         content: sheet.content,
         tags: sheet.tags,
         description: sheet.description,
-        iconKey: sheet.iconKey,
         createdAt: sheet.createdAt ?? Date.now(),
         updatedAt: Date.now(),
       }));
@@ -1347,6 +1235,84 @@ class Service {
       }
     } catch (error) {
       console.error("Failed to toggle favorite:", error);
+      throw error;
+    }
+  }
+
+  // Hidden cheatsheets management
+  static async getHiddenCheatsheets(): Promise<HiddenCheatsheet[]> {
+    try {
+      const stored = await LocalStorage.getItem("hidden-cheatsheets");
+      return stored ? JSON.parse(stored as string) : [];
+    } catch (error) {
+      console.error("Failed to get hidden cheatsheets:", error);
+      return [];
+    }
+  }
+
+  static async hideCheatsheet(type: "custom" | "default" | "repository", slug: string, title: string): Promise<void> {
+    try {
+      const hidden = await this.getHiddenCheatsheets();
+      const key = `${type}:${slug}`;
+      const existingIndex = hidden.findIndex((item) => item.key === key);
+
+      if (existingIndex >= 0) {
+        // Update existing hidden item
+        hidden[existingIndex].hiddenAt = Date.now();
+      } else {
+        // Add new hidden item
+        const newHidden: HiddenCheatsheet = {
+          key,
+          type,
+          slug,
+          title,
+          hiddenAt: Date.now(),
+        };
+        hidden.push(newHidden);
+      }
+
+      await LocalStorage.setItem("hidden-cheatsheets", JSON.stringify(hidden));
+    } catch (error) {
+      console.error("Failed to hide cheatsheet:", error);
+      throw error;
+    }
+  }
+
+  static async showCheatsheet(type: "custom" | "default" | "repository", slug: string): Promise<void> {
+    try {
+      const hidden = await this.getHiddenCheatsheets();
+      const key = `${type}:${slug}`;
+      const filtered = hidden.filter((item) => item.key !== key);
+      await LocalStorage.setItem("hidden-cheatsheets", JSON.stringify(filtered));
+    } catch (error) {
+      console.error("Failed to show cheatsheet:", error);
+      throw error;
+    }
+  }
+
+  static async isHidden(type: "custom" | "default" | "repository", slug: string): Promise<boolean> {
+    try {
+      const hidden = await this.getHiddenCheatsheets();
+      const key = `${type}:${slug}`;
+      return hidden.some((item) => item.key === key);
+    } catch (error) {
+      console.error("Failed to check if cheatsheet is hidden:", error);
+      return false;
+    }
+  }
+
+  static async toggleHidden(type: "custom" | "default" | "repository", slug: string, title: string): Promise<boolean> {
+    try {
+      const isCurrentlyHidden = await this.isHidden(type, slug);
+      if (isCurrentlyHidden) {
+        await this.showCheatsheet(type, slug);
+        return false;
+      } else {
+        await this.hideCheatsheet(type, slug, title);
+        return true;
+      }
+    } catch (error) {
+      console.error("Failed to toggle hidden status:", error);
       throw error;
     }
   }
@@ -1654,10 +1620,26 @@ class Service {
       const markdownFiles = files.filter((file: any) => {
         // Basic requirements
         const isMarkdown = file.path.endsWith('.md');
+        
+        // Subdirectory logic: if subdirectory is set, only sync that subdirectory
+        // If no subdirectory is set, sync ALL files in ALL subdirectories
         const isInSubdir = !repo.subdirectory || file.path.startsWith(repo.subdirectory + '/');
         
-        // Admin and documentation file exclusions
-        const isNotAdminFile = !file.path.match(/^(README|CONTRIBUTING|index|index@2016)/i);
+        // Debug logging for all files
+        if (isMarkdown) {
+          console.log(`Processing file: ${file.path} (isMarkdown: ${isMarkdown}, isInSubdir: ${isInSubdir}, subdirectory: '${repo.subdirectory || 'none'}')`);
+        }
+        
+        // Skip if not markdown or not in subdirectory
+        if (!isMarkdown || !isInSubdir) {
+          if (isMarkdown && !isInSubdir) {
+            console.log(`Excluding file (not in subdirectory): ${file.path} (subdirectory: ${repo.subdirectory || 'none'})`);
+          }
+          return false;
+        }
+        
+        // Admin and documentation file exclusions - be more precise
+        const isNotAdminFile = !file.path.match(/^(README|CONTRIBUTING|index|index@2016)\.md$/i);
         const isNotInGitHubDir = !file.path.startsWith('.github/');
         const isNotCodeOfConduct = !file.path.match(/code[_-]of[_-]conduct\.md$/i);
         const isNotLicense = !file.path.match(/^(LICENSE|LICENCE)\.md$/i);
@@ -1677,11 +1659,14 @@ class Service {
         // Directory and file pattern exclusions (as per requirements)
         const isNotInUnderscoreDir = !file.path.match(/(^|\/)_[^/]+/); // Exclude dirs starting with _
         const isNotAtSymbolFile = !file.path.includes('@'); // Exclude files with @ in name
-        const isNotInUnderscoreFile = !file.path.match(/_[^/]*\.md$/); // Exclude files starting with _
+        const isNotInUnderscoreFile = !file.path.match(/(^|\/)_[^/]*\.md$/); // Exclude files starting with _ in filename
         
-        return isMarkdown && 
-               isInSubdir && 
-               isNotAdminFile && 
+        // Additional exclusions for common non-cheatsheet files
+        const isNotIndexFile = !file.path.match(/^(Index|IndexASVS|IndexMASVS|IndexProactiveControls|IndexTopTen)\.md$/i);
+        const isNotPrefaceFile = !file.path.match(/^(Preface|HelpGuide)\.md$/i);
+        const isNotProjectFile = !file.path.match(/^Project\.[^/]*\.md$/i);
+        
+        const shouldInclude = isNotAdminFile && 
                isNotInGitHubDir && 
                isNotCodeOfConduct && 
                isNotLicense && 
@@ -1699,11 +1684,37 @@ class Service {
                isNotGettingStarted &&
                isNotInUnderscoreDir &&
                isNotAtSymbolFile &&
-               isNotInUnderscoreFile;
+               isNotInUnderscoreFile &&
+               isNotIndexFile &&
+               isNotPrefaceFile &&
+               isNotProjectFile;
+        
+        // Debug logging for troubleshooting
+        if (isMarkdown && isInSubdir) {
+          if (!shouldInclude) {
+            console.log(`Excluding file: ${file.path} (admin: ${!isNotAdminFile}, github: ${!isNotInGitHubDir}, codeOfConduct: ${!isNotCodeOfConduct}, license: ${!isNotLicense}, changelog: ${!isNotChangelog}, security: ${!isNotSecurity}, contributing: ${!isNotContributing}, prTemplate: ${!isNotPullRequestTemplate}, issueTemplate: ${!isNotIssueTemplate}, workflow: ${!isNotWorkflow}, releaseNotes: ${!isNotReleaseNotes}, authors: ${!isNotAuthors}, roadmap: ${!isNotRoadmap}, todo: ${!isNotTodo}, installation: ${!isNotInstallation}, gettingStarted: ${!isNotGettingStarted}, underscoreDir: ${!isNotInUnderscoreDir}, atSymbol: ${!isNotAtSymbolFile}, underscoreFile: ${!isNotInUnderscoreFile}, index: ${!isNotIndexFile}, preface: ${!isNotPrefaceFile}, project: ${!isNotProjectFile})`);
+          } else {
+            console.log(`INCLUDING file: ${file.path}`);
+          }
+        }
+        
+        return shouldInclude;
       });
 
       // Clear existing cheatsheets for this repository
       await this.deleteRepositoryCheatsheets(repo.id);
+
+      console.log(`Repository subdirectory setting: '${repo.subdirectory || 'none'}'`);
+      console.log(`Total files from GitHub API: ${files.length}`);
+      console.log(`Found ${markdownFiles.length} markdown files to process for ${repo.owner}/${repo.name}${repo.subdirectory ? ` in subdirectory '${repo.subdirectory}'` : ''}`);
+      if (markdownFiles.length > 0) {
+        console.log('Files to process:', markdownFiles.map(f => f.path).slice(0, 10).join(', '));
+        if (markdownFiles.length > 10) {
+          console.log(`... and ${markdownFiles.length - 10} more files`);
+        }
+      } else {
+        console.log('NO FILES TO PROCESS - This is the problem!');
+      }
 
       let success = 0;
       let failed = 0;
@@ -1764,7 +1775,7 @@ class Service {
       showToast({
         style: Toast.Style.Success,
         title: "Sync Complete",
-        message: `Synced ${success} cheatsheets from ${repo.owner}/${repo.name}${failed > 0 ? ` (${failed} failed)` : ''}`,
+        message: `Synced ${success} cheatsheets from ${repo.owner}/${repo.name}${repo.subdirectory ? ` (${repo.subdirectory}/)` : ''}${failed > 0 ? ` (${failed} failed)` : ''}`,
       });
 
       return { success, failed };
@@ -1809,6 +1820,8 @@ class Service {
       { path: 'docs/javascript.md', type: 'blob' },
       { path: 'guides/react.md', type: 'blob' },
       { path: 'tutorials/python.md', type: 'blob' },
+      { path: 'cheatsheets/AJAX_Security_Cheat_Sheet.md', type: 'blob' },
+      { path: 'cheatsheets/Abuse_Case_Cheat_Sheet.md', type: 'blob' },
       
       // Invalid files (should be excluded)
       { path: 'README.md', type: 'blob' },
@@ -1836,6 +1849,11 @@ class Service {
       { path: 'TASKS.md', type: 'blob' },
       { path: 'INSTALLATION.md', type: 'blob' },
       { path: 'QUICK_START.md', type: 'blob' },
+      { path: 'Index.md', type: 'blob' },
+      { path: 'IndexASVS.md', type: 'blob' },
+      { path: 'Preface.md', type: 'blob' },
+      { path: 'HelpGuide.md', type: 'blob' },
+      { path: 'Project.code-workspace.md', type: 'blob' },
       
       // Non-markdown files (should be excluded)
       { path: 'script.js', type: 'blob' },
@@ -1852,13 +1870,18 @@ class Service {
       subdirectory: undefined,
     };
 
-    // Apply the same filtering logic
+    // Apply the same filtering logic as in syncRepositoryFiles
     const filteredFiles = testFiles.filter((file: any) => {
       const isMarkdown = file.path.endsWith('.md');
       const isInSubdir = !mockRepo.subdirectory || file.path.startsWith(mockRepo.subdirectory + '/');
       
-      // Admin and documentation file exclusions
-      const isNotAdminFile = !file.path.match(/^(README|CONTRIBUTING|index|index@2016)/i);
+      // Skip if not markdown or not in subdirectory
+      if (!isMarkdown || !isInSubdir) {
+        return false;
+      }
+      
+      // Admin and documentation file exclusions - be more precise
+      const isNotAdminFile = !file.path.match(/^(README|CONTRIBUTING|index|index@2016)\.md$/i);
       const isNotInGitHubDir = !file.path.startsWith('.github/');
       const isNotCodeOfConduct = !file.path.match(/code[_-]of[_-]conduct\.md$/i);
       const isNotLicense = !file.path.match(/^(LICENSE|LICENCE)\.md$/i);
@@ -1875,14 +1898,17 @@ class Service {
       const isNotInstallation = !file.path.match(/^(INSTALL|INSTALLATION)\.md$/i);
       const isNotGettingStarted = !file.path.match(/^(GETTING[_-]STARTED|QUICK[_-]START)\.md$/i);
       
-      // Directory and file pattern exclusions (as per requirements)
+      // Directory and file pattern exclusions
       const isNotInUnderscoreDir = !file.path.match(/(^|\/)_[^/]+/);
       const isNotAtSymbolFile = !file.path.includes('@');
       const isNotInUnderscoreFile = !file.path.match(/_[^/]*\.md$/);
       
-      return isMarkdown && 
-             isInSubdir && 
-             isNotAdminFile && 
+      // Additional exclusions for common non-cheatsheet files
+      const isNotIndexFile = !file.path.match(/^(Index|IndexASVS|IndexMASVS|IndexProactiveControls|IndexTopTen)\.md$/i);
+      const isNotPrefaceFile = !file.path.match(/^(Preface|HelpGuide)\.md$/i);
+      const isNotProjectFile = !file.path.match(/^Project\.[^/]*\.md$/i);
+      
+      return isNotAdminFile && 
              isNotInGitHubDir && 
              isNotCodeOfConduct && 
              isNotLicense && 
@@ -1900,7 +1926,10 @@ class Service {
              isNotGettingStarted &&
              isNotInUnderscoreDir &&
              isNotAtSymbolFile &&
-             isNotInUnderscoreFile;
+             isNotInUnderscoreFile &&
+             isNotIndexFile &&
+             isNotPrefaceFile &&
+             isNotProjectFile;
     });
 
     console.log('Exclusion Filter Test Results:');
@@ -1909,7 +1938,7 @@ class Service {
     console.log('Valid cheatsheets that passed:');
     filteredFiles.forEach(file => console.log(`  ✅ ${file.path}`));
     
-    const expectedValid = ['cheatsheets/git.md', 'docs/javascript.md', 'guides/react.md', 'tutorials/python.md'];
+    const expectedValid = ['cheatsheets/git.md', 'docs/javascript.md', 'guides/react.md', 'tutorials/python.md', 'cheatsheets/AJAX_Security_Cheat_Sheet.md', 'cheatsheets/Abuse_Case_Cheat_Sheet.md'];
     const actualValid = filteredFiles.map(f => f.path);
     
     console.log('\nValidation:');
