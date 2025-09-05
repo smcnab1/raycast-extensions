@@ -2,19 +2,36 @@ import React from "react";
 import { Detail, ActionPanel, Action, Icon, showToast, Toast, useNavigation } from "@raycast/api";
 import { useState, useEffect } from "react";
 import { withAccessToken, getAccessToken } from "@raycast/utils";
-import Service, { UserRepository } from "./service";
+import Service, { UserRepository, RepositoryCheatsheet } from "./service";
 import { showFailureToast } from "@raycast/utils";
 import { githubOAuth } from "./github-oauth";
 
 function RepositoryDetailsComponent({ repo, onUpdated }: { repo: UserRepository; onUpdated?: () => void }) {
   const { push } = useNavigation();
   const [isLoading, setIsLoading] = useState(false);
+  const [cheatsheets, setCheatsheets] = useState<RepositoryCheatsheet[]>([]);
+  const [cheatsheetsLoading, setCheatsheetsLoading] = useState(true);
   const { token } = getAccessToken();
 
   useEffect(() => {
     // Record access when component mounts
     Service.recordRepositoryAccess(repo.id);
+    
+    // Load cheatsheets for this repository
+    loadCheatsheets();
   }, [repo.id]);
+
+  const loadCheatsheets = async () => {
+    try {
+      setCheatsheetsLoading(true);
+      const sheets = await Service.getRepositoryCheatsheets(repo.id);
+      setCheatsheets(sheets);
+    } catch (error) {
+      console.error("Failed to load cheatsheets:", error);
+    } finally {
+      setCheatsheetsLoading(false);
+    }
+  };
 
   const formatDate = (timestamp: number) => {
     return new Date(timestamp).toLocaleDateString("en-US", {
@@ -26,35 +43,100 @@ function RepositoryDetailsComponent({ repo, onUpdated }: { repo: UserRepository;
     });
   };
 
-  const markdown = `# ${repo.name}
+  const formatRelativeDate = (timestamp: number) => {
+    const now = Date.now();
+    const diff = now - timestamp;
+    const minutes = Math.floor(diff / 60000);
+    const hours = Math.floor(diff / 3600000);
+    const days = Math.floor(diff / 86400000);
 
-**Owner:** ${repo.owner}  
-**Repository:** ${repo.name}  
-**URL:** ${repo.url}  
-**Default Branch:** ${repo.defaultBranch}  
-**Visibility:** ${repo.isPrivate ? "Private" : "Public"}  
-${repo.subdirectory ? `**Subdirectory:** ${repo.subdirectory}` : ""}  
-**Added:** ${formatDate(repo.addedAt)}  
-${repo.lastAccessedAt ? `**Last Accessed:** ${formatDate(repo.lastAccessedAt)}` : ""}  
-${repo.lastSyncedAt ? `**Last Synced:** ${formatDate(repo.lastSyncedAt)}` : "**Never Synced**"}
+    if (minutes < 1) return "Just now";
+    if (minutes < 60) return `${minutes}m ago`;
+    if (hours < 24) return `${hours}h ago`;
+    if (days < 7) return `${days}d ago`;
+    return formatDate(timestamp);
+  };
 
-${repo.description ? `## Description\n\n${repo.description}` : ""}
+  const handleSync = async () => {
+    setIsLoading(true);
+    try {
+      await Service.syncRepositoryFiles(repo, token);
+      await loadCheatsheets(); // Reload cheatsheets after sync
+      if (onUpdated) {
+        onUpdated();
+      }
+    } catch (error) {
+      showFailureToast(error, { title: "Failed to sync repository" });
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-## Quick Actions
+  const cheatsheetsMarkdown = cheatsheets.length > 0 
+    ? `## 📚 Synced Cheatsheets (${cheatsheets.length})
 
-Use the actions below to interact with this repository:
+${cheatsheets.map(sheet => 
+  `- **${sheet.title}**  
+    \`${sheet.filePath}\`  
+    ${sheet.lastAccessedAt ? `Last viewed: ${formatRelativeDate(sheet.lastAccessedAt)}` : `Synced: ${formatRelativeDate(sheet.syncedAt)}`}`
+).join('\n\n')}`
+    : `## 📚 Synced Cheatsheets
 
-- **Open in Browser** - View the repository on GitHub
-- **Copy URL** - Copy the repository URL to clipboard
-- **Sync Repository** - Fetch cheatsheet files from GitHub
-- **Edit Repository** - Modify repository details
-- **Remove Repository** - Remove from your collection
-`;
+No cheatsheets found. Use the **Sync Repository** action to fetch cheatsheet files from this repository.`;
 
   return (
     <Detail
       isLoading={isLoading}
-      markdown={markdown}
+      markdown={cheatsheetsMarkdown}
+      metadata={
+        <Detail.Metadata>
+          <Detail.Metadata.Label title="Repository" text={repo.name} />
+          <Detail.Metadata.Label title="Owner" text={repo.owner} />
+          <Detail.Metadata.Separator />
+          <Detail.Metadata.Link
+            title="URL"
+            target={repo.url}
+            text={repo.url}
+          />
+          <Detail.Metadata.Label title="Default Branch" text={repo.defaultBranch} />
+          <Detail.Metadata.Label 
+            title="Visibility" 
+            text={repo.isPrivate ? "Private" : "Public"} 
+            icon={repo.isPrivate ? Icon.Lock : Icon.Globe}
+          />
+          {repo.subdirectory && (
+            <Detail.Metadata.Label title="Subdirectory" text={repo.subdirectory} />
+          )}
+          <Detail.Metadata.Separator />
+          <Detail.Metadata.Label 
+            title="Added" 
+            text={formatDate(repo.addedAt)} 
+          />
+          {repo.lastAccessedAt && (
+            <Detail.Metadata.Label 
+              title="Last Accessed" 
+              text={formatRelativeDate(repo.lastAccessedAt)} 
+            />
+          )}
+          <Detail.Metadata.Label 
+            title="Last Synced" 
+            text={repo.lastSyncedAt ? formatRelativeDate(repo.lastSyncedAt) : "Never"} 
+            icon={repo.lastSyncedAt ? Icon.CheckCircle : Icon.ExclamationMark}
+          />
+          <Detail.Metadata.Separator />
+          <Detail.Metadata.Label 
+            title="Cheatsheets" 
+            text={cheatsheetsLoading ? "Loading..." : `${cheatsheets.length} found`}
+            icon={Icon.Document}
+          />
+          {repo.description && (
+            <>
+              <Detail.Metadata.Separator />
+              <Detail.Metadata.Label title="Description" text={repo.description} />
+            </>
+          )}
+        </Detail.Metadata>
+      }
       actions={
         <ActionPanel>
           <ActionPanel.Section title="Repository Actions">
@@ -80,21 +162,40 @@ Use the actions below to interact with this repository:
               title="Sync Repository"
               icon={Icon.ArrowClockwise}
               shortcut={{ modifiers: ["cmd"], key: "r" }}
-              onAction={async () => {
-                setIsLoading(true);
-                try {
-                  await Service.syncRepositoryFiles(repo, token);
-                  if (onUpdated) {
-                    onUpdated();
-                  }
-                } catch (error) {
-                  showFailureToast(error, { title: "Failed to sync repository" });
-                } finally {
-                  setIsLoading(false);
-                }
-              }}
+              onAction={handleSync}
             />
           </ActionPanel.Section>
+          {cheatsheets.length > 0 && (
+            <ActionPanel.Section title="Cheatsheets">
+              <Action
+                title="View All Cheatsheets"
+                icon={Icon.List}
+                shortcut={{ modifiers: ["cmd"], key: "l" }}
+                onAction={() => {
+                  showToast({
+                    style: Toast.Style.Animated,
+                    title: "Coming Soon",
+                    message: "Cheatsheet viewer will be available soon",
+                  });
+                }}
+              />
+              <Action.CopyToClipboard
+                title="Copy Cheatsheet List"
+                icon={Icon.CopyClipboard}
+                shortcut={{ modifiers: ["cmd", "shift"], key: "l" }}
+                content={cheatsheets
+                  .map(sheet => `- ${sheet.title} (${sheet.filePath})`)
+                  .join('\n')}
+                onCopy={() => {
+                  showToast({
+                    style: Toast.Style.Success,
+                    title: "Copied",
+                    message: "Cheatsheet list copied to clipboard",
+                  });
+                }}
+              />
+            </ActionPanel.Section>
+          )}
           <ActionPanel.Section title="Manage">
             <Action.Push
               title="Edit Repository"
@@ -108,6 +209,7 @@ Use the actions below to interact with this repository:
               onAction={async () => {
                 setIsLoading(true);
                 try {
+                  await loadCheatsheets();
                   const updatedRepo = await Service.getUserRepository(repo.id);
                   if (updatedRepo) {
                     showToast({
