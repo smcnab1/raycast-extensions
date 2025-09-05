@@ -154,7 +154,7 @@ No cheatsheets found. Use the **Sync Repository** action to fetch cheatsheet fil
               shortcut={{ modifiers: ["cmd"], key: "o" }}
             />
             <Action.OpenInBrowser
-              title="View Owner Profile"
+              title={`View ${repo.owner}'s Profile`}
               url={`https://github.com/${repo.owner}`}
               icon={{ source: `https://github.com/${repo.owner}.png`, fallback: Icon.Person }}
               shortcut={{ modifiers: ["cmd"], key: "g" }}
