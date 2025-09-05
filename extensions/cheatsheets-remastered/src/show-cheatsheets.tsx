@@ -82,12 +82,22 @@ function Command() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [contentResults, setContentResults] = useState<string[]>([]);
+  const [unifiedList, setUnifiedList] = useState<UnifiedCheatsheet[]>([]);
 
   useEffect(() => {
     loadData();
     // Trigger background offline update if preferences allow
     Service.updateOfflineIfNeeded();
   }, []);
+
+  // Update unified list when data changes
+  useEffect(() => {
+    const updateUnifiedList = async () => {
+      const unified = await createUnifiedList();
+      setUnifiedList(unified);
+    };
+    updateUnifiedList();
+  }, [sheets, customSheets, repositorySheets, favorites]);
 
   // Add content search effect
   useEffect(() => {
@@ -144,7 +154,7 @@ function Command() {
   }
 
   // Create unified cheatsheet list
-  const createUnifiedList = (): UnifiedCheatsheet[] => {
+  const createUnifiedList = async (): Promise<UnifiedCheatsheet[]> => {
     const unified: UnifiedCheatsheet[] = [];
 
     // Add custom cheatsheets
@@ -172,9 +182,15 @@ function Command() {
       });
     });
 
-    // Add repository cheatsheets
+    // Add repository cheatsheets with proper repository names
+    const userRepos = await Service.getUserRepositories();
+    const repoMap = new Map(userRepos.map(repo => [repo.id, repo]));
+    
     repositorySheets.forEach((sheet) => {
       const isOffline = true; // Repository cheatsheets are always "offline" (cached locally)
+      const repo = repoMap.get(sheet.repositoryId);
+      const repositoryName = repo ? `${repo.owner}/${repo.name}` : sheet.filePath.split('/')[0];
+      
       unified.push({
         id: sheet.id,
         type: "repository",
@@ -183,14 +199,12 @@ function Command() {
         isOffline,
         isFavorited: false, // Repository cheatsheets don't support favorites yet
         repositoryId: sheet.repositoryId,
-        repositoryName: sheet.filePath.split('/')[0], // Get repository name from file path
+        repositoryName: repositoryName,
       });
     });
 
     return unified;
   };
-
-  const unifiedList = createUnifiedList();
 
   // Apply frequency sorting
   const { data: frecencyData } = useFrecencySorting(unifiedList, {
