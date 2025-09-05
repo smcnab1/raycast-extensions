@@ -1374,10 +1374,84 @@ class Service {
   static async getUserRepositories(): Promise<UserRepository[]> {
     try {
       const reposJson = await LocalStorage.getItem<string>("user-repositories");
-      return reposJson ? JSON.parse(reposJson) : [];
+      if (!reposJson) return [];
+      
+      const originalRepos = JSON.parse(reposJson);
+      
+      // Migration logic for schema changes
+      const migratedRepos = this.migrateUserRepositories(originalRepos);
+      
+      // Check if migration occurred by comparing structure
+      const migrationNeeded = this.detectMigrationNeeded(originalRepos, migratedRepos);
+      if (migrationNeeded) {
+        // Save migrated data back to LocalStorage
+        await this.saveMigratedRepositories(migratedRepos);
+        console.log("Repository schema migration completed");
+      }
+      
+      return migratedRepos;
     } catch (error) {
       console.warn("Failed to load user repositories:", error);
       return [];
+    }
+  }
+
+  // Detect if migration was needed by comparing original and migrated data
+  private static detectMigrationNeeded(original: any[], migrated: UserRepository[]): boolean {
+    if (original.length !== migrated.length) return true;
+    
+    return original.some((repo, index) => {
+      const migratedRepo = migrated[index];
+      return (
+        !repo.id || 
+        !repo.name || 
+        !repo.defaultBranch ||
+        repo.repo !== undefined || // Legacy 'repo' field
+        repo.branch !== undefined  // Legacy 'branch' field
+      );
+    });
+  }
+
+  // Migration logic for user repository schema changes
+  private static migrateUserRepositories(repos: any[]): UserRepository[] {
+    if (!Array.isArray(repos)) return [];
+    
+    return repos.map((repo: any) => {
+      // Ensure required fields exist with defaults
+      const migratedRepo: UserRepository = {
+        id: repo.id || `repo-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        name: repo.name || repo.repo || 'Unknown',
+        owner: repo.owner || 'unknown',
+        description: repo.description,
+        url: repo.url || `https://github.com/${repo.owner || 'unknown'}/${repo.name || repo.repo || 'unknown'}`,
+        addedAt: repo.addedAt || Date.now(),
+        lastAccessedAt: repo.lastAccessedAt,
+        isPrivate: repo.isPrivate || false,
+        defaultBranch: repo.defaultBranch || repo.branch || 'main',
+        subdirectory: repo.subdirectory,
+        lastSyncedAt: repo.lastSyncedAt,
+      };
+
+      // Handle legacy schema where 'repo' was used instead of 'name'
+      if (repo.repo && !repo.name) {
+        migratedRepo.name = repo.repo;
+      }
+
+      // Handle legacy schema where 'branch' was used instead of 'defaultBranch'
+      if (repo.branch && !repo.defaultBranch) {
+        migratedRepo.defaultBranch = repo.branch;
+      }
+
+      return migratedRepo;
+    });
+  }
+
+  // Save migrated repositories back to LocalStorage if migration occurred
+  private static async saveMigratedRepositories(repos: UserRepository[]): Promise<void> {
+    try {
+      await LocalStorage.setItem("user-repositories", JSON.stringify(repos));
+    } catch (error) {
+      console.warn("Failed to save migrated repositories:", error);
     }
   }
 
