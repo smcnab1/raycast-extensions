@@ -13,13 +13,18 @@ import {
   Alert,
   LocalStorage,
   Clipboard,
+  getPreferenceValues,
+  Image,
+  Color,
 } from "@raycast/api";
 import { useEffect, useState } from "react";
 import { showFailureToast, useFrecencySorting } from "@raycast/utils";
 
-import Service, { CustomCheatsheet, OfflineCheatsheet, FavoriteCheatsheet } from "./service";
+import Service, { CustomCheatsheet, OfflineCheatsheet, FavoriteCheatsheet, RepositoryCheatsheet } from "./service";
 import type { File as ServiceFile } from "./service";
-import { stripFrontmatter, stripTemplateTags, formatTables } from "./utils";
+import { stripFrontmatter, stripTemplateTags, formatTables, formatHtmlElements } from "./utils";
+// GitHub icon for repository cheatsheets - using built-in icon
+const githubIcon = "../assets/github.png";
 
 // (removed unused getCheatsheetIcon)
 
@@ -50,35 +55,49 @@ function useDraftPersistence(key: string, defaultValue: string) {
   return { value, updateValue, clearDraft };
 }
 
-type FilterType = "all" | "custom" | "default";
+type FilterType = "all" | "custom" | "default" | "repository" | "favorites";
 
 interface UnifiedCheatsheet {
   id: string;
-  type: "custom" | "default";
+  type: "custom" | "default" | "repository";
   slug: string;
   title: string;
   isOffline: boolean;
   isFavorited: boolean;
+  repositoryId?: string; // For repository cheatsheets
+  repositoryName?: string; // For display purposes
 }
 
 function Command() {
   const [sheets, setSheets] = useState<string[]>([]);
   const [customSheets, setCustomSheets] = useState<CustomCheatsheet[]>([]);
   const [offlineSheets, setOfflineSheets] = useState<OfflineCheatsheet[]>([]);
+  const [repositorySheets, setRepositorySheets] = useState<RepositoryCheatsheet[]>([]);
   const [favorites, setFavorites] = useState<FavoriteCheatsheet[]>([]);
   const [filter, setFilter] = useState<FilterType>("all");
-  const [sort, setSort] = useState<"frecency" | "lastViewed" | "mostViewed" | "alpha">("frecency");
+  const preferences = getPreferenceValues<{ defaultSort: "frecency" | "lastViewed" | "mostViewed" | "alpha" }>();
+  const sort = preferences.defaultSort;
   const [viewStats, setViewStats] = useState<Record<string, { count: number; lastViewedAt: number }>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [contentResults, setContentResults] = useState<string[]>([]);
+  const [unifiedList, setUnifiedList] = useState<UnifiedCheatsheet[]>([]);
 
   useEffect(() => {
     loadData();
     // Trigger background offline update if preferences allow
     Service.updateOfflineIfNeeded();
   }, []);
+
+  // Update unified list when data changes
+  useEffect(() => {
+    const updateUnifiedList = async () => {
+      const unified = await createUnifiedList();
+      setUnifiedList(unified);
+    };
+    updateUnifiedList();
+  }, [sheets, customSheets, repositorySheets, favorites]);
 
   // Add content search effect
   useEffect(() => {
@@ -104,10 +123,11 @@ function Command() {
       setError(null);
 
       // Always try to fetch fresh data from online sources by default
-      const [files, custom, offline, favs] = await Promise.all([
+      const [files, custom, offline, repository, favs] = await Promise.all([
         Service.listFiles(),
         Service.getCustomCheatsheets(),
         Service.getOfflineCheatsheets(),
+        Service.getRepositoryCheatsheets(),
         Service.getFavorites(),
       ]);
 
@@ -122,6 +142,7 @@ function Command() {
 
       setCustomSheets(custom);
       setOfflineSheets(offline);
+      setRepositorySheets(repository);
       setFavorites(favs);
       setViewStats(await Service.getViewStatsMap());
     } catch (err) {
@@ -133,7 +154,7 @@ function Command() {
   }
 
   // Create unified cheatsheet list
-  const createUnifiedList = (): UnifiedCheatsheet[] => {
+  const createUnifiedList = async (): Promise<UnifiedCheatsheet[]> => {
     const unified: UnifiedCheatsheet[] = [];
 
     // Add custom cheatsheets
@@ -161,10 +182,30 @@ function Command() {
       });
     });
 
+    // Add repository cheatsheets with proper repository names
+    const userRepos = await Service.getUserRepositories();
+    const repoMap = new Map(userRepos.map(repo => [repo.id, repo]));
+    
+    repositorySheets.forEach((sheet) => {
+      const isOffline = true; // Repository cheatsheets are always "offline" (cached locally)
+      const repo = repoMap.get(sheet.repositoryId);
+      const repositoryName = repo ? `${repo.owner}/${repo.name}` : sheet.filePath.split('/')[0];
+      const isFavorited = favorites.some((fav) => fav.slug === sheet.slug && fav.type === "repository");
+      
+      unified.push({
+        id: sheet.id,
+        type: "repository",
+        slug: sheet.slug,
+        title: sheet.title,
+        isOffline,
+        isFavorited,
+        repositoryId: sheet.repositoryId,
+        repositoryName: repositoryName,
+      });
+    });
+
     return unified;
   };
-
-  const unifiedList = createUnifiedList();
 
   // Apply frequency sorting
   const { data: frecencyData } = useFrecencySorting(unifiedList, {
@@ -203,6 +244,12 @@ function Command() {
       case "default":
         typeMatch = item.type === "default";
         break;
+      case "repository":
+        typeMatch = item.type === "repository";
+        break;
+      case "favorites":
+        typeMatch = item.isFavorited;
+        break;
       default:
         typeMatch = true;
     }
@@ -229,6 +276,19 @@ function Command() {
       // For default sheets, search in title and content results
       if (item.type === "default") {
         return Service.defaultMatchesQuery(item.slug, searchQuery) || contentResults.includes(item.slug);
+      }
+
+      // For repository sheets, search in title and content
+      if (item.type === "repository") {
+        const repoSheet = repositorySheets.find((s) => s.id === item.id);
+        if (repoSheet) {
+          return (
+            repoSheet.title.toLowerCase().includes(query) ||
+            repoSheet.content.toLowerCase().includes(query) ||
+            repoSheet.filePath.toLowerCase().includes(query) ||
+            (item.repositoryName && item.repositoryName.toLowerCase().includes(query))
+          );
+        }
       }
     }
 
@@ -323,6 +383,7 @@ function Command() {
 
   async function handleToggleFavorite(item: UnifiedCheatsheet) {
     try {
+      // Toggle favorite status for any cheatsheet type
       const newFavorited = await Service.toggleFavorite(item.type, item.slug, item.title);
 
       // Update local state
@@ -382,23 +443,13 @@ function Command() {
       searchText={searchQuery}
       onSearchTextChange={setSearchQuery}
       searchBarAccessory={
-        <>
-          <List.Dropdown tooltip="Filter" value={filter} onChange={(value) => setFilter(value as FilterType)}>
-            <List.Dropdown.Item title="All" value="all" />
-            <List.Dropdown.Item title="Custom" value="custom" />
-            <List.Dropdown.Item title="Default" value="default" />
-          </List.Dropdown>
-          <List.Dropdown
-            tooltip="Sort"
-            value={sort}
-            onChange={(value) => setSort(value as "frecency" | "lastViewed" | "mostViewed" | "alpha")}
-          >
-            <List.Dropdown.Item title="Frecency" value="frecency" />
-            <List.Dropdown.Item title="Last Viewed" value="lastViewed" />
-            <List.Dropdown.Item title="Most Viewed" value="mostViewed" />
-            <List.Dropdown.Item title="Alphabetical" value="alpha" />
-          </List.Dropdown>
-        </>
+        <List.Dropdown tooltip="Filter" value={filter} onChange={(value) => setFilter(value as FilterType)}>
+          <List.Dropdown.Item title="All" value="all" icon={Icon.AppWindowList} />
+          <List.Dropdown.Item title="Favorites" value="favorites" icon={Icon.Star} />
+          <List.Dropdown.Item title="Custom" value="custom" icon={Icon.Brush} />
+          <List.Dropdown.Item title="Default" value="default" icon={Icon.Box} />
+          <List.Dropdown.Item title="GitHub" value="repository" icon={githubIcon} />
+        </List.Dropdown>
       }
       actions={
         <ActionPanel>
@@ -497,15 +548,37 @@ function Command() {
             <List.Item
               key={`recent-${item.id}`}
               title={item.title}
-              subtitle={`${item.type === "custom" ? "Custom" : "Default"}`}
+              subtitle=""
               icon={
                 item.type === "custom"
                   ? customSheets.find((s) => s.id === item.id)?.iconKey
                     ? Service.iconForKey(customSheets.find((s) => s.id === item.id)!.iconKey!)
-                    : Icon.Document
-                  : Service.resolveIconForSlug(item.slug)
+                    : Icon.Brush
+                  : item.type === "repository"
+                  ? githubIcon
+                  : Service.isLocalCheatsheet(item.slug)
+                  ? Icon.Box
+                  : Icon.Globe
               }
-              accessories={[{ text: "Recent", icon: Icon.Clock }]}
+              accessories={[
+                {
+                  icon: item.type === "custom" 
+                    ? Icon.Brush 
+                    : item.type === "repository" 
+                    ? githubIcon 
+                    : Service.isLocalCheatsheet(item.slug) 
+                    ? Icon.Box 
+                    : Icon.Globe,
+                  tooltip: item.type === "custom" 
+                    ? "Custom" 
+                    : item.type === "repository" 
+                    ? "Repository" 
+                    : Service.isLocalCheatsheet(item.slug) 
+                    ? "Local" 
+                    : "Default",
+                },
+                { text: "Recent", icon: Icon.Clock }
+              ]}
               actions={
                 <ActionPanel>
                   <Action.Push
@@ -532,31 +605,46 @@ function Command() {
           title={item.title}
           subtitle={
             item.type === "custom"
-              ? customSheets.find((s) => s.id === item.id)?.description || "Custom"
-              : Service.getDefaultMetadata(item.slug)?.description ||
-                (Service.isLocalCheatsheet(item.slug) ? "Local" : "Default")
+              ? customSheets.find((s) => s.id === item.id)?.description || ""
+              : item.type === "repository"
+              ? item.repositoryName || ""
+              : ""
           }
           icon={
             item.type === "custom"
               ? customSheets.find((s) => s.id === item.id)?.iconKey
                 ? Service.iconForKey(customSheets.find((s) => s.id === item.id)!.iconKey!)
-                : Icon.Document
-              : Service.resolveIconForSlug(item.slug)
+                : Icon.Brush
+              : item.type === "repository"
+              ? githubIcon
+              : Service.isLocalCheatsheet(item.slug)
+              ? Icon.Box
+              : Icon.Globe
           }
           keywords={
             item.type === "custom"
               ? customSheets.find((s) => s.id === item.id)?.tags || []
+              : item.type === "repository"
+              ? ["repository", "github", item.repositoryName || ""].filter(Boolean)
               : Service.getDefaultMetadata(item.slug)?.tags || []
           }
           accessories={[
             {
-              text: item.type === "custom" ? "Custom" : Service.isLocalCheatsheet(item.slug) ? "Local" : "Default",
-              icon:
-                item.type === "custom" ? Icon.Tag : Service.isLocalCheatsheet(item.slug) ? Icon.Document : Icon.Globe,
+              icon: item.type === "custom" 
+                ? Icon.Brush 
+                : item.type === "repository" 
+                ? githubIcon 
+                : Service.isLocalCheatsheet(item.slug) 
+                ? Icon.Box 
+                : Icon.Globe,
+              tooltip: item.type === "custom" 
+                ? "Custom" 
+                : item.type === "repository" 
+                ? "Repository" 
+                : Service.isLocalCheatsheet(item.slug) 
+                ? "Local" 
+                : "Default",
             },
-            ...(item.type === "custom"
-              ? (customSheets.find((s) => s.id === item.id)?.tags || []).slice(0, 3).map((t) => ({ text: t }))
-              : (Service.getDefaultMetadata(item.slug)?.tags || []).slice(0, 3).map((t) => ({ text: t }))),
             ...(item.isOffline ? [{ icon: Icon.Checkmark, tooltip: "Available Offline" }] : []),
             ...(item.isFavorited ? [{ icon: Icon.Star, tooltip: "Favorited" }] : []),
           ]}
@@ -569,12 +657,17 @@ function Command() {
                   target={
                     item.type === "custom" ? (
                       <CustomSheetView sheet={customSheets.find((s) => s.id === item.id)!} />
+                    ) : item.type === "repository" ? (
+                      <RepositorySheetView sheet={repositorySheets.find((s) => s.id === item.id)!} />
                     ) : (
                       <SheetView slug={item.slug} />
                     )
                   }
                   onPush={async () => {
                     await Service.recordView(item.type, item.slug, item.title);
+                    if (item.type === "repository") {
+                      await Service.recordRepositoryCheatsheetAccess(item.id);
+                    }
                     const stats = await Service.getViewStatsMap();
                     setViewStats(stats);
                   }}
@@ -751,7 +844,7 @@ function SheetView({ slug }: SheetProps) {
     );
   }
 
-  const processedContent = formatTables(stripTemplateTags(stripFrontmatter(content)));
+  const processedContent = formatHtmlElements(formatTables(stripTemplateTags(stripFrontmatter(content))));
   const isLocal = Service.isLocalCheatsheet(slug);
 
   return (
@@ -1060,5 +1153,136 @@ function CreateCustomSheetForm({ onCreated }: CreateCustomSheetProps) {
   );
 }
 
-export { EditCustomSheetForm, CustomSheetView, SheetView };
+// Repository cheatsheet view component
+function RepositorySheetView({ sheet }: { sheet: RepositoryCheatsheet }) {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [repository, setRepository] = useState<{ owner: string; name: string; defaultBranch: string } | null>(null);
+
+  useEffect(() => {
+    // Record view for repository sheet
+    Service.recordRepositoryCheatsheetAccess(sheet.repositoryId);
+    
+    // Fetch repository information
+    const fetchRepository = async () => {
+      try {
+        const userRepos = await Service.getUserRepositories();
+        const repo = userRepos.find(r => r.id === sheet.repositoryId);
+        if (repo) {
+          setRepository({
+            owner: repo.owner,
+            name: repo.name,
+            defaultBranch: repo.defaultBranch
+          });
+        }
+      } catch (err) {
+        console.error('Failed to fetch repository info:', err);
+      }
+    };
+    
+    fetchRepository();
+  }, [sheet.repositoryId]);
+
+  const processedContent = formatHtmlElements(formatTables(stripTemplateTags(stripFrontmatter(sheet.content))));
+
+  // Construct GitHub URLs
+  const githubUrl = repository 
+    ? `https://github.com/${repository.owner}/${repository.name}/blob/${repository.defaultBranch}/${sheet.filePath}`
+    : null;
+  const repositoryUrl = repository
+    ? `https://github.com/${repository.owner}/${repository.name}`
+    : null;
+
+  return (
+    <Detail
+      isLoading={isLoading}
+      markdown={processedContent}
+      navigationTitle={sheet.title}
+      metadata={
+        <Detail.Metadata>
+          <Detail.Metadata.Label title="Title" text={sheet.title} />
+          {repositoryUrl ? (
+            <Detail.Metadata.Link
+              title="Repository"
+              target={repositoryUrl}
+              text={`${repository.owner}/${repository.name}`}
+            />
+          ) : (
+            <Detail.Metadata.Label 
+              title="Repository" 
+              text={sheet.repositoryId} 
+            />
+          )}
+          {githubUrl ? (
+            <Detail.Metadata.Link
+              title="File Path"
+              target={githubUrl}
+              text={sheet.filePath}
+            />
+          ) : (
+            <Detail.Metadata.Label title="File Path" text={sheet.filePath} />
+          )}
+          <Detail.Metadata.Label 
+            title="Synced" 
+            text={new Date(sheet.syncedAt).toLocaleDateString()} 
+            icon={Icon.Clock}
+          />
+          {sheet.lastAccessedAt && (
+            <Detail.Metadata.Label 
+              title="Last Accessed" 
+              text={new Date(sheet.lastAccessedAt).toLocaleDateString()} 
+              icon={Icon.Eye}
+            />
+          )}
+        </Detail.Metadata>
+      }
+      actions={
+        <ActionPanel>
+          {repositoryUrl && (
+            <ActionPanel.Section title="GitHub">
+              <Action.OpenInBrowser
+                title="View Repository"
+                url={repositoryUrl}
+                icon={Icon.Globe}
+              />
+              {githubUrl && (
+                <Action.OpenInBrowser
+                  title="View File on GitHub"
+                  url={githubUrl}
+                  icon={Icon.Document}
+                />
+              )}
+              <Action.CopyToClipboard
+                title="Copy Repository URL"
+                content={repositoryUrl}
+                icon={Icon.Clipboard}
+              />
+              {githubUrl && (
+                <Action.CopyToClipboard
+                  title="Copy File URL"
+                  content={githubUrl}
+                  icon={Icon.Clipboard}
+                />
+              )}
+            </ActionPanel.Section>
+          )}
+          <ActionPanel.Section title="Actions">
+            <Action.CopyToClipboard 
+              title="Copy Content" 
+              content={sheet.content} 
+              icon={Icon.CopyClipboard} 
+            />
+            <Action.CopyToClipboard 
+              title="Copy Title" 
+              content={sheet.title} 
+              icon={Icon.CopyClipboard} 
+            />
+          </ActionPanel.Section>
+        </ActionPanel>
+      }
+    />
+  );
+}
+
+export { EditCustomSheetForm, CustomSheetView, SheetView, RepositorySheetView };
 export default Command;
