@@ -540,8 +540,12 @@ function Command() {
                 item.type === "custom"
                   ? customSheets.find((s) => s.id === item.id)?.iconKey
                     ? Service.iconForKey(customSheets.find((s) => s.id === item.id)!.iconKey!)
-                    : Icon.Document
-                  : Service.resolveIconForSlug(item.slug)
+                    : Icon.Tag
+                  : item.type === "repository"
+                  ? Icon.Code
+                  : Service.isLocalCheatsheet(item.slug)
+                  ? Icon.Box
+                  : Icon.Globe
               }
               accessories={[
                 {
@@ -591,16 +595,18 @@ function Command() {
               ? customSheets.find((s) => s.id === item.id)?.description || ""
               : item.type === "repository"
               ? item.repositoryName || ""
-              : Service.getDefaultMetadata(item.slug)?.description || ""
+              : ""
           }
           icon={
             item.type === "custom"
               ? customSheets.find((s) => s.id === item.id)?.iconKey
                 ? Service.iconForKey(customSheets.find((s) => s.id === item.id)!.iconKey!)
-                : Icon.Document
+                : Icon.Tag
               : item.type === "repository"
               ? Icon.Code
-              : Service.resolveIconForSlug(item.slug)
+              : Service.isLocalCheatsheet(item.slug)
+              ? Icon.Box
+              : Icon.Globe
           }
           keywords={
             item.type === "custom"
