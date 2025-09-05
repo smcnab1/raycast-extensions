@@ -100,7 +100,8 @@ export default function ManageRepos() {
             accessories={[
               { text: repo.owner, icon: Icon.Person },
               { text: repo.defaultBranch, icon: Icon.GitBranch },
-              ...(repo.lastAccessedAt ? [{ date: new Date(repo.lastAccessedAt) }] : []),
+              ...(repo.subdirectory ? [{ text: repo.subdirectory, icon: Icon.Folder }] : []),
+              ...(repo.lastSyncedAt ? [{ date: new Date(repo.lastSyncedAt), icon: Icon.ArrowClockwise }] : []),
             ]}
             actions={
               <ActionPanel>
@@ -121,6 +122,19 @@ export default function ManageRepos() {
                     content={repo.url}
                     icon={Icon.CopyClipboard}
                     shortcut={{ modifiers: ["cmd"], key: "c" }}
+                  />
+                  <Action
+                    title="Sync Repository"
+                    icon={Icon.ArrowClockwise}
+                    shortcut={{ modifiers: ["cmd"], key: "r" }}
+                    onAction={async () => {
+                      try {
+                        await Service.syncRepositoryFiles(repo);
+                        await loadRepos();
+                      } catch (error) {
+                        showFailureToast(error, { title: "Failed to sync repository" });
+                      }
+                    }}
                   />
                 </ActionPanel.Section>
                 <ActionPanel.Section title="Manage">

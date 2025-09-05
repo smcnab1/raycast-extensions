@@ -11,6 +11,7 @@ type AddRepositoryFormValues = {
   url?: string;
   isPrivate: boolean;
   defaultBranch: string;
+  subdirectory?: string;
 };
 
 // Custom hook for draft persistence
@@ -81,6 +82,12 @@ export function AddRepositoryForm({ onAdded }: { onAdded?: () => void }) {
     clearDraft: clearDefaultBranchDraft,
   } = useDraftPersistence("add-repo-branch", "main");
 
+  const {
+    value: subdirectory,
+    updateValue: updateSubdirectory,
+    clearDraft: clearSubdirectoryDraft,
+  } = useDraftPersistence("add-repo-subdir", "");
+
   const handleSubmit = async (values: AddRepositoryFormValues) => {
     try {
       setIsSubmitting(true);
@@ -92,13 +99,26 @@ export function AddRepositoryForm({ onAdded }: { onAdded?: () => void }) {
         return;
       }
 
+      // Validate GitHub repository format
+      const validation = Service.validateGitHubRepository(values.owner, values.name);
+      if (!validation.isValid) {
+        showToast({
+          style: Toast.Style.Failure,
+          title: "Invalid Repository Format",
+          message: validation.error,
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
       await Service.addUserRepository(
         values.name,
         values.owner,
         values.description,
         values.url,
         values.isPrivate,
-        values.defaultBranch
+        values.defaultBranch,
+        values.subdirectory
       );
 
       // Clear drafts after successful submission
@@ -108,6 +128,7 @@ export function AddRepositoryForm({ onAdded }: { onAdded?: () => void }) {
       clearUrlDraft();
       clearIsPrivateDraft();
       clearDefaultBranchDraft();
+      clearSubdirectoryDraft();
 
       if (onAdded) {
         onAdded();
@@ -137,6 +158,7 @@ export function AddRepositoryForm({ onAdded }: { onAdded?: () => void }) {
               clearUrlDraft();
               clearIsPrivateDraft();
               clearDefaultBranchDraft();
+              clearSubdirectoryDraft();
               showToast({ style: Toast.Style.Success, title: "Form Reset" });
             }}
           />
@@ -144,8 +166,8 @@ export function AddRepositoryForm({ onAdded }: { onAdded?: () => void }) {
       }
     >
       <Form.Description
-        text="Add a new repository to your collection. You can manage and access it later from the Repos Manager."
-        title="Add New Repository"
+        text="Add a GitHub repository to your collection. Specify owner/repo format, optional branch and subdirectory to filter cheatsheet files."
+        title="Add GitHub Repository"
       />
 
       <Form.TextField
@@ -195,6 +217,14 @@ export function AddRepositoryForm({ onAdded }: { onAdded?: () => void }) {
         placeholder="Enter default branch name (e.g., 'main', 'master')"
         value={defaultBranch as string}
         onChange={updateDefaultBranch as (value: string) => void}
+      />
+
+      <Form.TextField
+        id="subdirectory"
+        title="Subdirectory (Optional)"
+        placeholder="Enter subdirectory path (e.g., 'docs', 'cheatsheets')"
+        value={subdirectory as string}
+        onChange={updateSubdirectory as (value: string) => void}
       />
     </Form>
   );

@@ -53,6 +53,8 @@ interface UserRepository {
   lastAccessedAt?: number;
   isPrivate: boolean;
   defaultBranch: string;
+  subdirectory?: string; // Optional subdirectory filter
+  lastSyncedAt?: number; // Track when repository was last synced
 }
 
 // Configure axios with better defaults and retry logic
@@ -1338,6 +1340,25 @@ class Service {
     }
   }
 
+  // GitHub repository validation
+  static validateGitHubRepository(owner: string, repo: string): { isValid: boolean; error?: string } {
+    if (!owner.trim() || !repo.trim()) {
+      return { isValid: false, error: "Owner and repository name are required" };
+    }
+
+    // Validate owner format (alphanumeric, hyphens, underscores)
+    if (!/^[a-zA-Z0-9._-]+$/.test(owner.trim())) {
+      return { isValid: false, error: "Invalid owner format. Use alphanumeric characters, hyphens, underscores, or dots" };
+    }
+
+    // Validate repo format (alphanumeric, hyphens, underscores, dots)
+    if (!/^[a-zA-Z0-9._-]+$/.test(repo.trim())) {
+      return { isValid: false, error: "Invalid repository name format. Use alphanumeric characters, hyphens, underscores, or dots" };
+    }
+
+    return { isValid: true };
+  }
+
   // Repository management methods
   static async getUserRepositories(): Promise<UserRepository[]> {
     try {
@@ -1355,12 +1376,14 @@ class Service {
     description?: string,
     url?: string,
     isPrivate: boolean = false,
-    defaultBranch: string = "main"
+    defaultBranch: string = "main",
+    subdirectory?: string
   ): Promise<UserRepository> {
     try {
-      // Validate input
-      if (!name.trim() || !owner.trim()) {
-        throw new Error("Repository name and owner are required");
+      // Validate GitHub repository format
+      const validation = this.validateGitHubRepository(owner, name);
+      if (!validation.isValid) {
+        throw new Error(validation.error);
       }
 
       const repos = await this.getUserRepositories();
@@ -1383,6 +1406,8 @@ class Service {
         addedAt: Date.now(),
         isPrivate,
         defaultBranch: defaultBranch.trim() || "main",
+        subdirectory: subdirectory?.trim() || undefined,
+        lastSyncedAt: undefined,
       };
 
       repos.push(newRepo);
@@ -1427,13 +1452,24 @@ class Service {
 
   static async updateUserRepository(
     id: string,
-    updates: Partial<Pick<UserRepository, "name" | "owner" | "description" | "url" | "defaultBranch">>
+    updates: Partial<Pick<UserRepository, "name" | "owner" | "description" | "url" | "defaultBranch" | "subdirectory">>
   ): Promise<UserRepository | null> {
     try {
       const repos = await this.getUserRepositories();
       const index = repos.findIndex((repo) => repo.id === id);
 
       if (index === -1) return null;
+
+      // Validate if name or owner are being updated
+      if (updates.name || updates.owner) {
+        const validation = this.validateGitHubRepository(
+          updates.owner || repos[index].owner,
+          updates.name || repos[index].name
+        );
+        if (!validation.isValid) {
+          throw new Error(validation.error);
+        }
+      }
 
       repos[index] = {
         ...repos[index],
@@ -1452,6 +1488,70 @@ class Service {
       return repos[index];
     } catch (error) {
       console.error("Failed to update repository:", error);
+      throw error;
+    }
+  }
+
+  // Sync repository files from GitHub
+  static async syncRepositoryFiles(repo: UserRepository): Promise<{ success: number; failed: number }> {
+    try {
+      const prefs = this.getPreferences() as ExtendedPreferences;
+      if (!prefs.githubToken) {
+        throw new Error("GitHub token required for repository sync");
+      }
+
+      showToast({
+        style: Toast.Style.Animated,
+        title: "Syncing Repository",
+        message: `Fetching files from ${repo.owner}/${repo.name}...`,
+      });
+
+      // Build API URL with optional subdirectory
+      const treeUrl = `https://api.github.com/repos/${repo.owner}/${repo.name}/git/trees/${repo.defaultBranch}`;
+      const params: any = { recursive: 1 };
+      
+      const response = await axios.get(treeUrl, {
+        params,
+        headers: {
+          Authorization: `Bearer ${prefs.githubToken}`,
+          Accept: "application/vnd.github.v3+json",
+          "User-Agent": "Cheatsheets-Remastered-Raycast",
+        },
+        timeout: 15000,
+      });
+
+      const files = response.data.tree || [];
+      
+      // Filter markdown files and apply subdirectory filter
+      const markdownFiles = files.filter((file: any) => {
+        const isMarkdown = file.path.endsWith('.md');
+        const isInSubdir = !repo.subdirectory || file.path.startsWith(repo.subdirectory + '/');
+        const isNotAdminFile = !file.path.match(/^(README|CONTRIBUTING|index|index@2016)/i);
+        return isMarkdown && isInSubdir && isNotAdminFile;
+      });
+
+      // Update repository with sync timestamp
+      const repos = await this.getUserRepositories();
+      const repoIndex = repos.findIndex((r) => r.id === repo.id);
+      if (repoIndex !== -1) {
+        repos[repoIndex].lastSyncedAt = Date.now();
+        await LocalStorage.setItem("user-repositories", JSON.stringify(repos));
+      }
+
+      showToast({
+        style: Toast.Style.Success,
+        title: "Sync Complete",
+        message: `Found ${markdownFiles.length} cheatsheet files in ${repo.owner}/${repo.name}`,
+      });
+
+      return { success: markdownFiles.length, failed: 0 };
+    } catch (error) {
+      console.error("Failed to sync repository files:", error);
+      showToast({
+        style: Toast.Style.Failure,
+        title: "Sync Failed",
+        message: error instanceof Error ? error.message : "Unknown error",
+      });
       throw error;
     }
   }

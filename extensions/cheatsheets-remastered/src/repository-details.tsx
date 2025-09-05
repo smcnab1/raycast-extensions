@@ -30,8 +30,10 @@ export function RepositoryDetails({ repo, onUpdated }: { repo: UserRepository; o
 **URL:** ${repo.url}  
 **Default Branch:** ${repo.defaultBranch}  
 **Visibility:** ${repo.isPrivate ? "Private" : "Public"}  
+${repo.subdirectory ? `**Subdirectory:** ${repo.subdirectory}` : ""}  
 **Added:** ${formatDate(repo.addedAt)}  
-${repo.lastAccessedAt ? `**Last Accessed:** ${formatDate(repo.lastAccessedAt)}` : ""}
+${repo.lastAccessedAt ? `**Last Accessed:** ${formatDate(repo.lastAccessedAt)}` : ""}  
+${repo.lastSyncedAt ? `**Last Synced:** ${formatDate(repo.lastSyncedAt)}` : "**Never Synced**"}
 
 ${repo.description ? `## Description\n\n${repo.description}` : ""}
 
@@ -41,6 +43,7 @@ Use the actions below to interact with this repository:
 
 - **Open in Browser** - View the repository on GitHub
 - **Copy URL** - Copy the repository URL to clipboard
+- **Sync Repository** - Fetch cheatsheet files from GitHub
 - **Edit Repository** - Modify repository details
 - **Remove Repository** - Remove from your collection
 `;
@@ -69,6 +72,24 @@ Use the actions below to interact with this repository:
               content={`git clone ${repo.url}.git`}
               icon={Icon.Terminal}
               shortcut={{ modifiers: ["cmd", "shift"], key: "c" }}
+            />
+            <Action
+              title="Sync Repository"
+              icon={Icon.ArrowClockwise}
+              shortcut={{ modifiers: ["cmd"], key: "r" }}
+              onAction={async () => {
+                setIsLoading(true);
+                try {
+                  await Service.syncRepositoryFiles(repo);
+                  if (onUpdated) {
+                    onUpdated();
+                  }
+                } catch (error) {
+                  showFailureToast(error, { title: "Failed to sync repository" });
+                } finally {
+                  setIsLoading(false);
+                }
+              }}
             />
           </ActionPanel.Section>
           <ActionPanel.Section title="Manage">

@@ -10,6 +10,7 @@ type EditRepositoryFormValues = {
   description?: string;
   url?: string;
   defaultBranch: string;
+  subdirectory?: string;
 };
 
 export function EditRepositoryForm({ repo, onUpdated }: { repo: UserRepository; onUpdated?: () => void }) {
@@ -23,6 +24,7 @@ export function EditRepositoryForm({ repo, onUpdated }: { repo: UserRepository; 
     description: repo.description || "",
     url: repo.url,
     defaultBranch: repo.defaultBranch,
+    subdirectory: repo.subdirectory || "",
   });
 
   const handleSubmit = async (values: EditRepositoryFormValues) => {
@@ -36,12 +38,25 @@ export function EditRepositoryForm({ repo, onUpdated }: { repo: UserRepository; 
         return;
       }
 
+      // Validate GitHub repository format
+      const validation = Service.validateGitHubRepository(values.owner, values.name);
+      if (!validation.isValid) {
+        showToast({
+          style: Toast.Style.Failure,
+          title: "Invalid Repository Format",
+          message: validation.error,
+        });
+        setIsSubmitting(false);
+        return;
+      }
+
       await Service.updateUserRepository(repo.id, {
         name: values.name.trim(),
         owner: values.owner.trim(),
         description: values.description?.trim() || undefined,
         url: values.url?.trim() || undefined,
         defaultBranch: values.defaultBranch.trim(),
+        subdirectory: values.subdirectory?.trim() || undefined,
       });
 
       if (onUpdated) {
@@ -65,7 +80,6 @@ export function EditRepositoryForm({ repo, onUpdated }: { repo: UserRepository; 
             title="Cancel"
             icon={Icon.XMark}
             onAction={pop}
-            shortcut={{ modifiers: ["cmd"], key: "escape" }}
           />
         </ActionPanel>
       }
@@ -115,6 +129,14 @@ export function EditRepositoryForm({ repo, onUpdated }: { repo: UserRepository; 
         placeholder="Enter default branch name"
         value={formData.defaultBranch}
         onChange={(value) => setFormData({ ...formData, defaultBranch: value })}
+      />
+
+      <Form.TextField
+        id="subdirectory"
+        title="Subdirectory (Optional)"
+        placeholder="Enter subdirectory path (e.g., 'docs', 'cheatsheets')"
+        value={formData.subdirectory}
+        onChange={(value) => setFormData({ ...formData, subdirectory: value })}
       />
     </Form>
   );
