@@ -1579,6 +1579,19 @@ class Service {
   // Sync repository files from GitHub using OAuth token
   static async syncRepositoryFiles(repo: UserRepository, accessToken: string): Promise<{ success: number; failed: number }> {
     try {
+      // Validate repository parameters
+      if (!repo.owner || !repo.name) {
+        throw new Error("Invalid repository: missing owner or name");
+      }
+      
+      if (!repo.defaultBranch) {
+        throw new Error("Invalid repository: missing default branch");
+      }
+
+      if (!accessToken) {
+        throw new Error("GitHub token required for repository sync");
+      }
+
       showToast({
         style: Toast.Style.Animated,
         title: "Syncing Repository",
@@ -1597,6 +1610,41 @@ class Service {
           "User-Agent": "Cheatsheets-Remastered-Raycast",
         },
         timeout: 15000,
+      }).catch((error) => {
+        // Handle specific GitHub API errors
+        if (error.response) {
+          const status = error.response.status;
+          const data = error.response.data;
+          
+          switch (status) {
+            case 404:
+              if (data.message?.includes('Not Found')) {
+                throw new Error(`Repository ${repo.owner}/${repo.name} not found or you don't have access to it`);
+              } else if (data.message?.includes('tree not found')) {
+                throw new Error(`Branch '${repo.defaultBranch}' not found in repository ${repo.owner}/${repo.name}`);
+              }
+              break;
+            case 403:
+              if (data.message?.includes('API rate limit exceeded')) {
+                throw new Error('GitHub API rate limit exceeded. Please try again later');
+              } else if (data.message?.includes('Resource not accessible')) {
+                throw new Error(`Access denied to repository ${repo.owner}/${repo.name}. Check permissions`);
+              }
+              break;
+            case 401:
+              throw new Error('GitHub authentication failed. Please re-authenticate');
+            case 422:
+              throw new Error(`Invalid repository or branch: ${repo.owner}/${repo.name}#${repo.defaultBranch}`);
+            default:
+              throw new Error(`GitHub API error (${status}): ${data.message || 'Unknown error'}`);
+          }
+        } else if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+          throw new Error('Unable to connect to GitHub. Please check your internet connection');
+        } else if (error.code === 'ETIMEDOUT') {
+          throw new Error('Request timed out. Please try again');
+        }
+        
+        throw error;
       });
 
       const files = response.data.tree || [];
@@ -1661,6 +1709,16 @@ class Service {
               "User-Agent": "Cheatsheets-Remastered-Raycast",
             },
             timeout: 10000,
+          }).catch((error) => {
+            // Handle content fetching errors
+            if (error.response?.status === 404) {
+              throw new Error(`File not found: ${file.path}`);
+            } else if (error.response?.status === 403) {
+              throw new Error(`Access denied to file: ${file.path}`);
+            } else if (error.code === 'ETIMEDOUT') {
+              throw new Error(`Timeout fetching file: ${file.path}`);
+            }
+            throw error;
           });
 
           const content = contentResponse.data;
