@@ -101,7 +101,7 @@ function ManageReposWithAuth() {
             key={repo.id}
             title={repo.name}
             subtitle={repo.description || `${repo.owner}/${repo.name}`}
-            icon={{ source: `https://github.com/${repo.owner}.png`, fallback: repo.isPrivate ? Icon.Lock : Icon.Box }}
+            icon={repo.isPrivate ? Icon.Lock : Icon.Box}
             accessories={[
               { text: repo.owner, icon: { source: `https://github.com/${repo.owner}.png`, fallback: Icon.Person } },
               { text: repo.defaultBranch, icon: Icon.Code },
