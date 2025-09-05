@@ -13,6 +13,7 @@ import {
   Alert,
   LocalStorage,
   Clipboard,
+  getPreferenceValues,
 } from "@raycast/api";
 import { useEffect, useState } from "react";
 import { showFailureToast, useFrecencySorting } from "@raycast/utils";
@@ -70,7 +71,8 @@ function Command() {
   const [repositorySheets, setRepositorySheets] = useState<RepositoryCheatsheet[]>([]);
   const [favorites, setFavorites] = useState<FavoriteCheatsheet[]>([]);
   const [filter, setFilter] = useState<FilterType>("all");
-  const [sort, setSort] = useState<"frecency" | "lastViewed" | "mostViewed" | "alpha">("frecency");
+  const preferences = getPreferenceValues<{ defaultSort: "frecency" | "lastViewed" | "mostViewed" | "alpha" }>();
+  const sort = preferences.defaultSort;
   const [viewStats, setViewStats] = useState<Record<string, { count: number; lastViewedAt: number }>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -429,32 +431,6 @@ function Command() {
       actions={
         <ActionPanel>
           <Action title="Refresh" icon={Icon.ArrowClockwise} onAction={handleRefresh} />
-          <ActionPanel.Section title="Sort">
-            <Action
-              title="Sort by Frecency"
-              icon={Icon.Clock}
-              onAction={() => setSort("frecency")}
-              shortcut={{ modifiers: ["cmd"], key: "1" }}
-            />
-            <Action
-              title="Sort by Last Viewed"
-              icon={Icon.Eye}
-              onAction={() => setSort("lastViewed")}
-              shortcut={{ modifiers: ["cmd"], key: "2" }}
-            />
-            <Action
-              title="Sort by Most Viewed"
-              icon={Icon.Star}
-              onAction={() => setSort("mostViewed")}
-              shortcut={{ modifiers: ["cmd"], key: "3" }}
-            />
-            <Action
-              title="Sort Alphabetically"
-              icon={Icon.Text}
-              onAction={() => setSort("alpha")}
-              shortcut={{ modifiers: ["cmd"], key: "4" }}
-            />
-          </ActionPanel.Section>
           <Action.Push
             title="Create Custom Cheatsheet"
             icon={Icon.Plus}

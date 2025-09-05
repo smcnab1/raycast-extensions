@@ -81,7 +81,33 @@
       "type": "password",
       "required": false,
       "title": "GitHub Token (optional)",
-      "description": "Optional: Improves rate limits for online content search (local search doesn’t require it)"
+      "description": "Optional: Improves rate limits for online content search (local search doesn't require it)"
+    },
+    {
+      "name": "defaultSort",
+      "type": "dropdown",
+      "required": true,
+      "title": "Default Sort Order",
+      "description": "How to sort cheatsheets by default",
+      "default": "frecency",
+      "data": [
+        {
+          "title": "Frecency (Smart)",
+          "value": "frecency"
+        },
+        {
+          "title": "Last Viewed",
+          "value": "lastViewed"
+        },
+        {
+          "title": "Most Viewed",
+          "value": "mostViewed"
+        },
+        {
+          "title": "Alphabetical",
+          "value": "alpha"
+        }
+      ]
     }
   ],
   "dependencies": {
