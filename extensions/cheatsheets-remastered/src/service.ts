@@ -1531,8 +1531,43 @@ class Service {
       const markdownFiles = files.filter((file: any) => {
         const isMarkdown = file.path.endsWith('.md');
         const isInSubdir = !repo.subdirectory || file.path.startsWith(repo.subdirectory + '/');
+        
+        // Skip non-cheatsheet files
         const isNotAdminFile = !file.path.match(/^(README|CONTRIBUTING|index|index@2016)/i);
-        return isMarkdown && isInSubdir && isNotAdminFile;
+        const isNotInGitHubDir = !file.path.startsWith('.github/');
+        const isNotCodeOfConduct = !file.path.match(/code[_-]of[_-]conduct\.md$/i);
+        const isNotLicense = !file.path.match(/^(LICENSE|LICENCE)\.md$/i);
+        const isNotChangelog = !file.path.match(/^(CHANGELOG|HISTORY)\.md$/i);
+        const isNotSecurity = !file.path.match(/^(SECURITY|SECURITY\.md)$/i);
+        const isNotContributing = !file.path.match(/^(CONTRIBUTING|CONTRIBUTING\.md)$/i);
+        const isNotPullRequestTemplate = !file.path.match(/pull_request_template\.md$/i);
+        const isNotIssueTemplate = !file.path.startsWith('.github/ISSUE_TEMPLATE/');
+        const isNotWorkflow = !file.path.startsWith('.github/workflows/');
+        const isNotReleaseNotes = !file.path.match(/^(RELEASES?|RELEASE[_-]NOTES?)\.md$/i);
+        const isNotAuthors = !file.path.match(/^(AUTHORS?|CONTRIBUTORS?)\.md$/i);
+        const isNotRoadmap = !file.path.match(/^(ROADMAP|ROAD[_-]MAP)\.md$/i);
+        const isNotTodo = !file.path.match(/^(TODO|TASKS?)\.md$/i);
+        const isNotInstallation = !file.path.match(/^(INSTALL|INSTALLATION)\.md$/i);
+        const isNotGettingStarted = !file.path.match(/^(GETTING[_-]STARTED|QUICK[_-]START)\.md$/i);
+        
+        return isMarkdown && 
+               isInSubdir && 
+               isNotAdminFile && 
+               isNotInGitHubDir && 
+               isNotCodeOfConduct && 
+               isNotLicense && 
+               isNotChangelog && 
+               isNotSecurity && 
+               isNotContributing && 
+               isNotPullRequestTemplate && 
+               isNotIssueTemplate && 
+               isNotWorkflow && 
+               isNotReleaseNotes && 
+               isNotAuthors && 
+               isNotRoadmap && 
+               isNotTodo && 
+               isNotInstallation && 
+               isNotGettingStarted;
       });
 
       // Clear existing cheatsheets for this repository
