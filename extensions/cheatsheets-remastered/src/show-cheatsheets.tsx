@@ -1180,9 +1180,12 @@ function RepositorySheetView({ sheet }: { sheet: RepositoryCheatsheet }) {
 
   const processedContent = formatHtmlElements(formatTables(stripTemplateTags(stripFrontmatter(sheet.content))));
 
-  // Construct GitHub URL for the file
+  // Construct GitHub URLs
   const githubUrl = repository 
     ? `https://github.com/${repository.owner}/${repository.name}/blob/${repository.defaultBranch}/${sheet.filePath}`
+    : null;
+  const repositoryUrl = repository
+    ? `https://github.com/${repository.owner}/${repository.name}`
     : null;
 
   return (
@@ -1193,10 +1196,18 @@ function RepositorySheetView({ sheet }: { sheet: RepositoryCheatsheet }) {
       metadata={
         <Detail.Metadata>
           <Detail.Metadata.Label title="Title" text={sheet.title} />
-          <Detail.Metadata.Label 
-            title="Repository" 
-            text={repository ? `${repository.owner}/${repository.name}` : sheet.repositoryId} 
-          />
+          {repositoryUrl ? (
+            <Detail.Metadata.Link
+              title="Repository"
+              target={repositoryUrl}
+              text={`${repository.owner}/${repository.name}`}
+            />
+          ) : (
+            <Detail.Metadata.Label 
+              title="Repository" 
+              text={sheet.repositoryId} 
+            />
+          )}
           {githubUrl ? (
             <Detail.Metadata.Link
               title="File Path"
@@ -1222,18 +1233,32 @@ function RepositorySheetView({ sheet }: { sheet: RepositoryCheatsheet }) {
       }
       actions={
         <ActionPanel>
-          {githubUrl && (
+          {repositoryUrl && (
             <ActionPanel.Section title="GitHub">
               <Action.OpenInBrowser
-                title="View on GitHub"
-                url={githubUrl}
+                title="View Repository"
+                url={repositoryUrl}
                 icon={Icon.Globe}
               />
+              {githubUrl && (
+                <Action.OpenInBrowser
+                  title="View File on GitHub"
+                  url={githubUrl}
+                  icon={Icon.Document}
+                />
+              )}
               <Action.CopyToClipboard
-                title="Copy GitHub URL"
-                content={githubUrl}
+                title="Copy Repository URL"
+                content={repositoryUrl}
                 icon={Icon.Clipboard}
               />
+              {githubUrl && (
+                <Action.CopyToClipboard
+                  title="Copy File URL"
+                  content={githubUrl}
+                  icon={Icon.Clipboard}
+                />
+              )}
             </ActionPanel.Section>
           )}
           <ActionPanel.Section title="Actions">
