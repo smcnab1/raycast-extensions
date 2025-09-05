@@ -28,7 +28,7 @@ interface OfflineCheatsheet {
 
 interface FavoriteCheatsheet {
   id: string;
-  type: "custom" | "default";
+  type: "custom" | "default" | "repository";
   slug: string;
   title: string;
   favoritedAt: number;
@@ -36,7 +36,7 @@ interface FavoriteCheatsheet {
 
 interface ViewRecord {
   key: string; // `${type}:${slug}`
-  type: "custom" | "default";
+  type: "custom" | "default" | "repository";
   slug: string;
   title: string;
   count: number;
@@ -1043,7 +1043,7 @@ class Service {
     }
   }
 
-  static async recordView(type: "custom" | "default", slug: string, title: string): Promise<void> {
+  static async recordView(type: "custom" | "default" | "repository", slug: string, title: string): Promise<void> {
     try {
       const key = `${type}:${slug}`;
       const views = await this.getViewHistory();
@@ -1286,7 +1286,7 @@ class Service {
     }
   }
 
-  static async addToFavorites(type: "custom" | "default", slug: string, title: string): Promise<void> {
+  static async addToFavorites(type: "custom" | "default" | "repository", slug: string, title: string): Promise<void> {
     try {
       const favorites = await this.getFavorites();
       const existingIndex = favorites.findIndex((fav) => fav.slug === slug && fav.type === type);
@@ -1313,7 +1313,7 @@ class Service {
     }
   }
 
-  static async removeFromFavorites(type: "custom" | "default", slug: string): Promise<void> {
+  static async removeFromFavorites(type: "custom" | "default" | "repository", slug: string): Promise<void> {
     try {
       const favorites = await this.getFavorites();
       const filtered = favorites.filter((fav) => !(fav.slug === slug && fav.type === type));
@@ -1324,7 +1324,7 @@ class Service {
     }
   }
 
-  static async isFavorited(type: "custom" | "default", slug: string): Promise<boolean> {
+  static async isFavorited(type: "custom" | "default" | "repository", slug: string): Promise<boolean> {
     try {
       const favorites = await this.getFavorites();
       return favorites.some((fav) => fav.slug === slug && fav.type === type);
@@ -1334,7 +1334,7 @@ class Service {
     }
   }
 
-  static async toggleFavorite(type: "custom" | "default", slug: string, title: string): Promise<boolean> {
+  static async toggleFavorite(type: "custom" | "default" | "repository", slug: string, title: string): Promise<boolean> {
     try {
       const isFavorited = await this.isFavorited(type, slug);
 

@@ -17,7 +17,7 @@ import {
 import { useEffect, useState } from "react";
 import { showFailureToast, useFrecencySorting } from "@raycast/utils";
 
-import Service, { CustomCheatsheet, OfflineCheatsheet, FavoriteCheatsheet } from "./service";
+import Service, { CustomCheatsheet, OfflineCheatsheet, FavoriteCheatsheet, RepositoryCheatsheet } from "./service";
 import type { File as ServiceFile } from "./service";
 import { stripFrontmatter, stripTemplateTags, formatTables } from "./utils";
 
@@ -50,21 +50,24 @@ function useDraftPersistence(key: string, defaultValue: string) {
   return { value, updateValue, clearDraft };
 }
 
-type FilterType = "all" | "custom" | "default";
+type FilterType = "all" | "custom" | "default" | "repository";
 
 interface UnifiedCheatsheet {
   id: string;
-  type: "custom" | "default";
+  type: "custom" | "default" | "repository";
   slug: string;
   title: string;
   isOffline: boolean;
   isFavorited: boolean;
+  repositoryId?: string; // For repository cheatsheets
+  repositoryName?: string; // For display purposes
 }
 
 function Command() {
   const [sheets, setSheets] = useState<string[]>([]);
   const [customSheets, setCustomSheets] = useState<CustomCheatsheet[]>([]);
   const [offlineSheets, setOfflineSheets] = useState<OfflineCheatsheet[]>([]);
+  const [repositorySheets, setRepositorySheets] = useState<RepositoryCheatsheet[]>([]);
   const [favorites, setFavorites] = useState<FavoriteCheatsheet[]>([]);
   const [filter, setFilter] = useState<FilterType>("all");
   const [sort, setSort] = useState<"frecency" | "lastViewed" | "mostViewed" | "alpha">("frecency");
@@ -104,10 +107,11 @@ function Command() {
       setError(null);
 
       // Always try to fetch fresh data from online sources by default
-      const [files, custom, offline, favs] = await Promise.all([
+      const [files, custom, offline, repository, favs] = await Promise.all([
         Service.listFiles(),
         Service.getCustomCheatsheets(),
         Service.getOfflineCheatsheets(),
+        Service.getRepositoryCheatsheets(),
         Service.getFavorites(),
       ]);
 
@@ -122,6 +126,7 @@ function Command() {
 
       setCustomSheets(custom);
       setOfflineSheets(offline);
+      setRepositorySheets(repository);
       setFavorites(favs);
       setViewStats(await Service.getViewStatsMap());
     } catch (err) {
@@ -158,6 +163,21 @@ function Command() {
         title: sheet,
         isOffline,
         isFavorited: favorites.some((fav) => fav.slug === sheet && fav.type === "default"),
+      });
+    });
+
+    // Add repository cheatsheets
+    repositorySheets.forEach((sheet) => {
+      const isOffline = true; // Repository cheatsheets are always "offline" (cached locally)
+      unified.push({
+        id: sheet.id,
+        type: "repository",
+        slug: sheet.slug,
+        title: sheet.title,
+        isOffline,
+        isFavorited: false, // Repository cheatsheets don't support favorites yet
+        repositoryId: sheet.repositoryId,
+        repositoryName: sheet.filePath.split('/')[0], // Get repository name from file path
       });
     });
 
@@ -203,6 +223,9 @@ function Command() {
       case "default":
         typeMatch = item.type === "default";
         break;
+      case "repository":
+        typeMatch = item.type === "repository";
+        break;
       default:
         typeMatch = true;
     }
@@ -229,6 +252,19 @@ function Command() {
       // For default sheets, search in title and content results
       if (item.type === "default") {
         return Service.defaultMatchesQuery(item.slug, searchQuery) || contentResults.includes(item.slug);
+      }
+
+      // For repository sheets, search in title and content
+      if (item.type === "repository") {
+        const repoSheet = repositorySheets.find((s) => s.id === item.id);
+        if (repoSheet) {
+          return (
+            repoSheet.title.toLowerCase().includes(query) ||
+            repoSheet.content.toLowerCase().includes(query) ||
+            repoSheet.filePath.toLowerCase().includes(query) ||
+            (item.repositoryName && item.repositoryName.toLowerCase().includes(query))
+          );
+        }
       }
     }
 
@@ -323,6 +359,7 @@ function Command() {
 
   async function handleToggleFavorite(item: UnifiedCheatsheet) {
     try {
+      // Toggle favorite status for any cheatsheet type
       const newFavorited = await Service.toggleFavorite(item.type, item.slug, item.title);
 
       // Update local state
@@ -387,6 +424,7 @@ function Command() {
             <List.Dropdown.Item title="All" value="all" />
             <List.Dropdown.Item title="Custom" value="custom" />
             <List.Dropdown.Item title="Default" value="default" />
+            <List.Dropdown.Item title="Repository" value="repository" />
           </List.Dropdown>
           <List.Dropdown
             tooltip="Sort"
@@ -533,6 +571,8 @@ function Command() {
           subtitle={
             item.type === "custom"
               ? customSheets.find((s) => s.id === item.id)?.description || "Custom"
+              : item.type === "repository"
+              ? `Repository: ${item.repositoryName || "Unknown"}`
               : Service.getDefaultMetadata(item.slug)?.description ||
                 (Service.isLocalCheatsheet(item.slug) ? "Local" : "Default")
           }
@@ -541,21 +581,38 @@ function Command() {
               ? customSheets.find((s) => s.id === item.id)?.iconKey
                 ? Service.iconForKey(customSheets.find((s) => s.id === item.id)!.iconKey!)
                 : Icon.Document
+              : item.type === "repository"
+              ? Icon.Code
               : Service.resolveIconForSlug(item.slug)
           }
           keywords={
             item.type === "custom"
               ? customSheets.find((s) => s.id === item.id)?.tags || []
+              : item.type === "repository"
+              ? ["repository", "github", item.repositoryName || ""].filter(Boolean)
               : Service.getDefaultMetadata(item.slug)?.tags || []
           }
           accessories={[
             {
-              text: item.type === "custom" ? "Custom" : Service.isLocalCheatsheet(item.slug) ? "Local" : "Default",
-              icon:
-                item.type === "custom" ? Icon.Tag : Service.isLocalCheatsheet(item.slug) ? Icon.Document : Icon.Globe,
+              text: item.type === "custom" 
+                ? "Custom" 
+                : item.type === "repository" 
+                ? "Repository" 
+                : Service.isLocalCheatsheet(item.slug) 
+                ? "Local" 
+                : "Default",
+              icon: item.type === "custom" 
+                ? Icon.Tag 
+                : item.type === "repository" 
+                ? Icon.Code 
+                : Service.isLocalCheatsheet(item.slug) 
+                ? Icon.Document 
+                : Icon.Globe,
             },
             ...(item.type === "custom"
               ? (customSheets.find((s) => s.id === item.id)?.tags || []).slice(0, 3).map((t) => ({ text: t }))
+              : item.type === "repository"
+              ? ["repository", "github"].slice(0, 3).map((t) => ({ text: t }))
               : (Service.getDefaultMetadata(item.slug)?.tags || []).slice(0, 3).map((t) => ({ text: t }))),
             ...(item.isOffline ? [{ icon: Icon.Checkmark, tooltip: "Available Offline" }] : []),
             ...(item.isFavorited ? [{ icon: Icon.Star, tooltip: "Favorited" }] : []),
@@ -569,12 +626,17 @@ function Command() {
                   target={
                     item.type === "custom" ? (
                       <CustomSheetView sheet={customSheets.find((s) => s.id === item.id)!} />
+                    ) : item.type === "repository" ? (
+                      <RepositorySheetView sheet={repositorySheets.find((s) => s.id === item.id)!} />
                     ) : (
                       <SheetView slug={item.slug} />
                     )
                   }
                   onPush={async () => {
                     await Service.recordView(item.type, item.slug, item.title);
+                    if (item.type === "repository") {
+                      await Service.recordRepositoryCheatsheetAccess(item.id);
+                    }
                     const stats = await Service.getViewStatsMap();
                     setViewStats(stats);
                   }}
@@ -1060,5 +1122,61 @@ function CreateCustomSheetForm({ onCreated }: CreateCustomSheetProps) {
   );
 }
 
-export { EditCustomSheetForm, CustomSheetView, SheetView };
+// Repository cheatsheet view component
+function RepositorySheetView({ sheet }: { sheet: RepositoryCheatsheet }) {
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Record view for repository sheet
+    Service.recordRepositoryCheatsheetAccess(sheet.repositoryId);
+  }, [sheet.repositoryId]);
+
+  const processedContent = formatTables(stripTemplateTags(stripFrontmatter(sheet.content)));
+
+  return (
+    <Detail
+      isLoading={isLoading}
+      markdown={processedContent}
+      navigationTitle={sheet.title}
+      metadata={
+        <Detail.Metadata>
+          <Detail.Metadata.Label title="Title" text={sheet.title} />
+          <Detail.Metadata.Label title="Repository" text={sheet.repositoryId} />
+          <Detail.Metadata.Label title="File Path" text={sheet.filePath} />
+          <Detail.Metadata.Label 
+            title="Synced" 
+            text={new Date(sheet.syncedAt).toLocaleDateString()} 
+            icon={Icon.Clock}
+          />
+          {sheet.lastAccessedAt && (
+            <Detail.Metadata.Label 
+              title="Last Accessed" 
+              text={new Date(sheet.lastAccessedAt).toLocaleDateString()} 
+              icon={Icon.Eye}
+            />
+          )}
+        </Detail.Metadata>
+      }
+      actions={
+        <ActionPanel>
+          <ActionPanel.Section title="Actions">
+            <Action.CopyToClipboard 
+              title="Copy Content" 
+              content={sheet.content} 
+              icon={Icon.CopyClipboard} 
+            />
+            <Action.CopyToClipboard 
+              title="Copy Title" 
+              content={sheet.title} 
+              icon={Icon.CopyClipboard} 
+            />
+          </ActionPanel.Section>
+        </ActionPanel>
+      }
+    />
+  );
+}
+
+export { EditCustomSheetForm, CustomSheetView, SheetView, RepositorySheetView };
 export default Command;
