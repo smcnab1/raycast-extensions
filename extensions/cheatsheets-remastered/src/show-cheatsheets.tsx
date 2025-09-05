@@ -190,6 +190,7 @@ function Command() {
       const isOffline = true; // Repository cheatsheets are always "offline" (cached locally)
       const repo = repoMap.get(sheet.repositoryId);
       const repositoryName = repo ? `${repo.owner}/${repo.name}` : sheet.filePath.split('/')[0];
+      const isFavorited = favorites.some((fav) => fav.slug === sheet.slug && fav.type === "repository");
       
       unified.push({
         id: sheet.id,
@@ -197,7 +198,7 @@ function Command() {
         slug: sheet.slug,
         title: sheet.title,
         isOffline,
-        isFavorited: favorites.some((fav) => fav.slug === sheet.id && fav.type === "repository"),
+        isFavorited,
         repositoryId: sheet.repositoryId,
         repositoryName: repositoryName,
       });
