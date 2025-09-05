@@ -419,28 +419,42 @@ function Command() {
       searchText={searchQuery}
       onSearchTextChange={setSearchQuery}
       searchBarAccessory={
-        <>
-          <List.Dropdown tooltip="Filter" value={filter} onChange={(value) => setFilter(value as FilterType)}>
-            <List.Dropdown.Item title="All" value="all" />
-            <List.Dropdown.Item title="Custom" value="custom" />
-            <List.Dropdown.Item title="Default" value="default" />
-            <List.Dropdown.Item title="GitHub" value="repository" />
-          </List.Dropdown>
-          <List.Dropdown
-            tooltip="Sort"
-            value={sort}
-            onChange={(value) => setSort(value as "frecency" | "lastViewed" | "mostViewed" | "alpha")}
-          >
-            <List.Dropdown.Item title="Frecency" value="frecency" />
-            <List.Dropdown.Item title="Last Viewed" value="lastViewed" />
-            <List.Dropdown.Item title="Most Viewed" value="mostViewed" />
-            <List.Dropdown.Item title="Alphabetical" value="alpha" />
-          </List.Dropdown>
-        </>
+        <List.Dropdown tooltip="Filter" value={filter} onChange={(value) => setFilter(value as FilterType)}>
+          <List.Dropdown.Item title="All" value="all" />
+          <List.Dropdown.Item title="Custom" value="custom" />
+          <List.Dropdown.Item title="Default" value="default" />
+          <List.Dropdown.Item title="GitHub" value="repository" />
+        </List.Dropdown>
       }
       actions={
         <ActionPanel>
           <Action title="Refresh" icon={Icon.ArrowClockwise} onAction={handleRefresh} />
+          <ActionPanel.Section title="Sort">
+            <Action
+              title="Sort by Frecency"
+              icon={Icon.Clock}
+              onAction={() => setSort("frecency")}
+              shortcut={{ modifiers: ["cmd"], key: "1" }}
+            />
+            <Action
+              title="Sort by Last Viewed"
+              icon={Icon.Eye}
+              onAction={() => setSort("lastViewed")}
+              shortcut={{ modifiers: ["cmd"], key: "2" }}
+            />
+            <Action
+              title="Sort by Most Viewed"
+              icon={Icon.Star}
+              onAction={() => setSort("mostViewed")}
+              shortcut={{ modifiers: ["cmd"], key: "3" }}
+            />
+            <Action
+              title="Sort Alphabetically"
+              icon={Icon.Text}
+              onAction={() => setSort("alpha")}
+              shortcut={{ modifiers: ["cmd"], key: "4" }}
+            />
+          </ActionPanel.Section>
           <Action.Push
             title="Create Custom Cheatsheet"
             icon={Icon.Plus}
