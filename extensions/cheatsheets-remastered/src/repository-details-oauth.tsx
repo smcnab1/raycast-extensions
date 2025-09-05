@@ -93,7 +93,6 @@ No cheatsheets found. Use the **Sync Repository** action to fetch cheatsheet fil
           <Detail.Metadata.Label 
             title="Repository" 
             text={repo.name} 
-            icon={{ source: `https://github.com/${repo.owner}.png`, fallback: Icon.Box }}
           />
           <Detail.Metadata.Label 
             title="Owner" 
@@ -153,6 +152,12 @@ No cheatsheets found. Use the **Sync Repository** action to fetch cheatsheet fil
               url={repo.url}
               icon={Icon.Globe}
               shortcut={{ modifiers: ["cmd"], key: "o" }}
+            />
+            <Action.OpenInBrowser
+              title="View Owner Profile"
+              url={`https://github.com/${repo.owner}`}
+              icon={{ source: `https://github.com/${repo.owner}.png`, fallback: Icon.Person }}
+              shortcut={{ modifiers: ["cmd"], key: "g" }}
             />
             <Action.CopyToClipboard
               title="Copy URL"
