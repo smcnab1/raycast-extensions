@@ -1,8 +1,8 @@
 import React from "react";
 import { Form, ActionPanel, Action, Icon, showToast, Toast, LocalStorage, useNavigation } from "@raycast/api";
 import { useState } from "react";
-import Service from "./service";
 import { showFailureToast } from "@raycast/utils";
+import Service from "./service";
 
 type AddRepositoryFormValues = {
   name: string;
@@ -46,11 +46,7 @@ export function AddRepositoryForm({ onAdded }: { onAdded?: () => void }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showErrors, setShowErrors] = useState(false);
 
-  const {
-    value: name,
-    updateValue: updateName,
-    clearDraft: clearNameDraft,
-  } = useDraftPersistence("add-repo-name", "");
+  const { value: name, updateValue: updateName, clearDraft: clearNameDraft } = useDraftPersistence("add-repo-name", "");
 
   const {
     value: owner,
@@ -64,11 +60,7 @@ export function AddRepositoryForm({ onAdded }: { onAdded?: () => void }) {
     clearDraft: clearDescriptionDraft,
   } = useDraftPersistence("add-repo-description", "");
 
-  const {
-    value: url,
-    updateValue: updateUrl,
-    clearDraft: clearUrlDraft,
-  } = useDraftPersistence("add-repo-url", "");
+  const { value: url, updateValue: updateUrl, clearDraft: clearUrlDraft } = useDraftPersistence("add-repo-url", "");
 
   const {
     value: isPrivate,
@@ -118,7 +110,7 @@ export function AddRepositoryForm({ onAdded }: { onAdded?: () => void }) {
         values.url,
         values.isPrivate,
         values.defaultBranch,
-        values.subdirectory
+        values.subdirectory,
       );
 
       // Clear drafts after successful submission

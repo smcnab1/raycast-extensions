@@ -1,11 +1,10 @@
 import React from "react";
-import { Detail, ActionPanel, Action, Icon, showToast, Toast, useNavigation } from "@raycast/api";
+import { Detail, ActionPanel, Action, Icon, showToast, Toast } from "@raycast/api";
 import { useState, useEffect } from "react";
-import Service, { UserRepository } from "./service";
 import { showFailureToast } from "@raycast/utils";
+import Service, { UserRepository } from "./service";
 
 export function RepositoryDetails({ repo, onUpdated }: { repo: UserRepository; onUpdated?: () => void }) {
-  const { push } = useNavigation();
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {

@@ -1,8 +1,8 @@
 import React from "react";
 import { Form, ActionPanel, Action, Icon, showToast, Toast, useNavigation } from "@raycast/api";
 import { useState } from "react";
-import Service, { UserRepository } from "./service";
 import { showFailureToast } from "@raycast/utils";
+import Service, { UserRepository } from "./service";
 
 type EditRepositoryFormValues = {
   name: string;
@@ -76,11 +76,7 @@ export function EditRepositoryForm({ repo, onUpdated }: { repo: UserRepository; 
       actions={
         <ActionPanel>
           <Action.SubmitForm title="Update Repository" onSubmit={handleSubmit} icon={Icon.Check} />
-          <Action
-            title="Cancel"
-            icon={Icon.Xmark}
-            onAction={pop}
-          />
+          <Action title="Cancel" icon={Icon.Xmark} onAction={pop} />
         </ActionPanel>
       }
     >

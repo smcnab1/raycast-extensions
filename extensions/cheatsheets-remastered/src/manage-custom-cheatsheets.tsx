@@ -1,6 +1,7 @@
 import React from "react";
 import { List, ActionPanel, Action, Icon, showToast, Toast, confirmAlert, Alert, useNavigation } from "@raycast/api";
 import { useState, useEffect } from "react";
+import { showFailureToast } from "@raycast/utils";
 import Service, { CustomCheatsheet } from "./service";
 
 export default function ManageCustomCheatsheets() {
@@ -105,7 +106,9 @@ export default function ManageCustomCheatsheets() {
             icon={Icon.Box}
             accessories={[
               { date: new Date(sheet.updatedAt) },
-              ...(sheet.tags && sheet.tags.length > 0 ? sheet.tags.slice(0, 3).map(tag => ({ text: tag, icon: Icon.Tag })) : []),
+              ...(sheet.tags && sheet.tags.length > 0
+                ? sheet.tags.slice(0, 3).map((tag) => ({ text: tag, icon: Icon.Tag }))
+                : []),
             ]}
             actions={
               <ActionPanel>
@@ -160,4 +163,3 @@ export default function ManageCustomCheatsheets() {
 // Import the components we need
 import { CreateCustomCheatsheet } from "./create-custom-cheatsheet";
 import { EditCustomSheetForm, CustomSheetView } from "./show-cheatsheets";
-import { showFailureToast } from "@raycast/utils";

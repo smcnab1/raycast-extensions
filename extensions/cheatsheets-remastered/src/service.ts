@@ -1,5 +1,5 @@
 import axios from "axios";
-import { LocalStorage, showToast, Toast, getPreferenceValues, Icon, environment } from "@raycast/api";
+import { LocalStorage, showToast, Toast, getPreferenceValues, environment } from "@raycast/api";
 import fs from "fs";
 import path from "path";
 import { DEFAULT_SHEET_METADATA, DefaultMetadata } from "./default-tags";
@@ -734,8 +734,6 @@ class Service {
     );
   }
 
-
-
   // Fast content search across default cheatsheets using GitHub code search
   static async searchDefaultContent(query: string): Promise<string[]> {
     try {
@@ -1222,7 +1220,11 @@ class Service {
     }
   }
 
-  static async toggleFavorite(type: "custom" | "default" | "repository", slug: string, title: string): Promise<boolean> {
+  static async toggleFavorite(
+    type: "custom" | "default" | "repository",
+    slug: string,
+    title: string,
+  ): Promise<boolean> {
     try {
       const isFavorited = await this.isFavorited(type, slug);
 
@@ -1325,12 +1327,18 @@ class Service {
 
     // Validate owner format (alphanumeric, hyphens, underscores)
     if (!/^[a-zA-Z0-9._-]+$/.test(owner.trim())) {
-      return { isValid: false, error: "Invalid owner format. Use alphanumeric characters, hyphens, underscores, or dots" };
+      return {
+        isValid: false,
+        error: "Invalid owner format. Use alphanumeric characters, hyphens, underscores, or dots",
+      };
     }
 
     // Validate repo format (alphanumeric, hyphens, underscores, dots)
     if (!/^[a-zA-Z0-9._-]+$/.test(repo.trim())) {
-      return { isValid: false, error: "Invalid repository name format. Use alphanumeric characters, hyphens, underscores, or dots" };
+      return {
+        isValid: false,
+        error: "Invalid repository name format. Use alphanumeric characters, hyphens, underscores, or dots",
+      };
     }
 
     return { isValid: true };
@@ -1341,12 +1349,12 @@ class Service {
     try {
       const reposJson = await LocalStorage.getItem<string>("user-repositories");
       if (!reposJson) return [];
-      
+
       const originalRepos = JSON.parse(reposJson);
-      
+
       // Migration logic for schema changes
       const migratedRepos = this.migrateUserRepositories(originalRepos);
-      
+
       // Check if migration occurred by comparing structure
       const migrationNeeded = this.detectMigrationNeeded(originalRepos, migratedRepos);
       if (migrationNeeded) {
@@ -1354,7 +1362,7 @@ class Service {
         await this.saveMigratedRepositories(migratedRepos);
         console.log("Repository schema migration completed");
       }
-      
+
       return migratedRepos;
     } catch (error) {
       console.warn("Failed to load user repositories:", error);
@@ -1363,49 +1371,52 @@ class Service {
   }
 
   // Detect if migration was needed by comparing original and migrated data
-  private static detectMigrationNeeded(original: any[], migrated: UserRepository[]): boolean {
+  private static detectMigrationNeeded(original: unknown[], migrated: UserRepository[]): boolean {
     if (original.length !== migrated.length) return true;
-    
-    return original.some((repo, index) => {
-      const migratedRepo = migrated[index];
+
+    return original.some((repo) => {
+      const repoObj = repo as Record<string, unknown>;
       return (
-        !repo.id || 
-        !repo.name || 
-        !repo.defaultBranch ||
-        repo.repo !== undefined || // Legacy 'repo' field
-        repo.branch !== undefined  // Legacy 'branch' field
+        !repoObj.id ||
+        !repoObj.name ||
+        !repoObj.defaultBranch ||
+        repoObj.repo !== undefined || // Legacy 'repo' field
+        repoObj.branch !== undefined // Legacy 'branch' field
       );
     });
   }
 
   // Migration logic for user repository schema changes
-  private static migrateUserRepositories(repos: any[]): UserRepository[] {
+  private static migrateUserRepositories(repos: unknown[]): UserRepository[] {
     if (!Array.isArray(repos)) return [];
-    
-    return repos.map((repo: any) => {
+
+    return repos.map((repo: unknown) => {
+      const repoObj = repo as Record<string, unknown>;
       // Ensure required fields exist with defaults
       const migratedRepo: UserRepository = {
-        id: repo.id || `repo-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-        name: repo.name || repo.repo || 'Unknown',
-        owner: repo.owner || 'unknown',
-        description: repo.description,
-        url: repo.url || `https://github.com/${repo.owner || 'unknown'}/${repo.name || repo.repo || 'unknown'}`,
-        addedAt: repo.addedAt || Date.now(),
-        lastAccessedAt: repo.lastAccessedAt,
-        isPrivate: repo.isPrivate || false,
-        defaultBranch: repo.defaultBranch || repo.branch || 'main',
-        subdirectory: repo.subdirectory,
-        lastSyncedAt: repo.lastSyncedAt,
+        id: (repoObj.id as string) || `repo-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        name: (repoObj.name as string) || (repoObj.repo as string) || "Unknown",
+        owner: (repoObj.owner as string) || "unknown",
+        description: repoObj.description as string | undefined,
+        url:
+          (repoObj.url as string) ||
+          `https://github.com/${(repoObj.owner as string) || "unknown"}/${(repoObj.name as string) || (repoObj.repo as string) || "unknown"}`,
+        addedAt: (repoObj.addedAt as number) || Date.now(),
+        lastAccessedAt: repoObj.lastAccessedAt as number | undefined,
+        isPrivate: (repoObj.isPrivate as boolean) || false,
+        defaultBranch: (repoObj.defaultBranch as string) || (repoObj.branch as string) || "main",
+        subdirectory: repoObj.subdirectory as string | undefined,
+        lastSyncedAt: repoObj.lastSyncedAt as number | undefined,
       };
 
       // Handle legacy schema where 'repo' was used instead of 'name'
-      if (repo.repo && !repo.name) {
-        migratedRepo.name = repo.repo;
+      if (repoObj.repo && !repoObj.name) {
+        migratedRepo.name = repoObj.repo as string;
       }
 
       // Handle legacy schema where 'branch' was used instead of 'defaultBranch'
-      if (repo.branch && !repo.defaultBranch) {
-        migratedRepo.defaultBranch = repo.branch;
+      if (repoObj.branch && !repoObj.defaultBranch) {
+        migratedRepo.defaultBranch = repoObj.branch as string;
       }
 
       return migratedRepo;
@@ -1428,7 +1439,7 @@ class Service {
     url?: string,
     isPrivate: boolean = false,
     defaultBranch: string = "main",
-    subdirectory?: string
+    subdirectory?: string,
   ): Promise<UserRepository> {
     try {
       // Validate GitHub repository format
@@ -1438,10 +1449,10 @@ class Service {
       }
 
       const repos = await this.getUserRepositories();
-      
+
       // Check if repository already exists
       const existingRepo = repos.find(
-        (repo) => repo.name.toLowerCase() === name.toLowerCase() && repo.owner.toLowerCase() === owner.toLowerCase()
+        (repo) => repo.name.toLowerCase() === name.toLowerCase() && repo.owner.toLowerCase() === owner.toLowerCase(),
       );
 
       if (existingRepo) {
@@ -1503,7 +1514,9 @@ class Service {
 
   static async updateUserRepository(
     id: string,
-    updates: Partial<Pick<UserRepository, "name" | "owner" | "description" | "url" | "defaultBranch" | "subdirectory" | "lastSyncedAt">>
+    updates: Partial<
+      Pick<UserRepository, "name" | "owner" | "description" | "url" | "defaultBranch" | "subdirectory" | "lastSyncedAt">
+    >,
   ): Promise<UserRepository | null> {
     try {
       const repos = await this.getUserRepositories();
@@ -1515,7 +1528,7 @@ class Service {
       if (updates.name || updates.owner) {
         const validation = this.validateGitHubRepository(
           updates.owner || repos[index].owner,
-          updates.name || repos[index].name
+          updates.name || repos[index].name,
         );
         if (!validation.isValid) {
           throw new Error(validation.error);
@@ -1543,13 +1556,16 @@ class Service {
   }
 
   // Sync repository files from GitHub using OAuth token
-  static async syncRepositoryFiles(repo: UserRepository, accessToken: string): Promise<{ success: number; failed: number }> {
+  static async syncRepositoryFiles(
+    repo: UserRepository,
+    accessToken: string,
+  ): Promise<{ success: number; failed: number }> {
     try {
       // Validate repository parameters
       if (!repo.owner || !repo.name) {
         throw new Error("Invalid repository: missing owner or name");
       }
-      
+
       if (!repo.defaultBranch) {
         throw new Error("Invalid repository: missing default branch");
       }
@@ -1566,154 +1582,174 @@ class Service {
 
       // Build API URL with optional subdirectory
       const treeUrl = `https://api.github.com/repos/${repo.owner}/${repo.name}/git/trees/${repo.defaultBranch}`;
-      const params: any = { recursive: 1 };
-      
-      const response = await axios.get(treeUrl, {
-        params,
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-          Accept: "application/vnd.github.v3+json",
-          "User-Agent": "Cheatsheets-Remastered-Raycast",
-        },
-        timeout: 15000,
-      }).catch((error) => {
-        // Handle specific GitHub API errors
-        if (error.response) {
-          const status = error.response.status;
-          const data = error.response.data;
-          
-          switch (status) {
-            case 404:
-              if (data.message?.includes('Not Found')) {
-                throw new Error(`Repository ${repo.owner}/${repo.name} not found or you don't have access to it`);
-              } else if (data.message?.includes('tree not found')) {
-                throw new Error(`Branch '${repo.defaultBranch}' not found in repository ${repo.owner}/${repo.name}`);
-              }
-              break;
-            case 403:
-              if (data.message?.includes('API rate limit exceeded')) {
-                throw new Error('GitHub API rate limit exceeded. Please try again later');
-              } else if (data.message?.includes('Resource not accessible')) {
-                throw new Error(`Access denied to repository ${repo.owner}/${repo.name}. Check permissions`);
-              }
-              break;
-            case 401:
-              throw new Error('GitHub authentication failed. Please re-authenticate');
-            case 422:
-              throw new Error(`Invalid repository or branch: ${repo.owner}/${repo.name}#${repo.defaultBranch}`);
-            default:
-              throw new Error(`GitHub API error (${status}): ${data.message || 'Unknown error'}`);
+      const params: Record<string, unknown> = { recursive: 1 };
+
+      const response = await axios
+        .get(treeUrl, {
+          params,
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            Accept: "application/vnd.github.v3+json",
+            "User-Agent": "Cheatsheets-Remastered-Raycast",
+          },
+          timeout: 15000,
+        })
+        .catch((error) => {
+          // Handle specific GitHub API errors
+          if (error.response) {
+            const status = error.response.status;
+            const data = error.response.data;
+
+            switch (status) {
+              case 404:
+                if (data.message?.includes("Not Found")) {
+                  throw new Error(`Repository ${repo.owner}/${repo.name} not found or you don't have access to it`);
+                } else if (data.message?.includes("tree not found")) {
+                  throw new Error(`Branch '${repo.defaultBranch}' not found in repository ${repo.owner}/${repo.name}`);
+                }
+                break;
+              case 403:
+                if (data.message?.includes("API rate limit exceeded")) {
+                  throw new Error("GitHub API rate limit exceeded. Please try again later");
+                } else if (data.message?.includes("Resource not accessible")) {
+                  throw new Error(`Access denied to repository ${repo.owner}/${repo.name}. Check permissions`);
+                }
+                break;
+              case 401:
+                throw new Error("GitHub authentication failed. Please re-authenticate");
+              case 422:
+                throw new Error(`Invalid repository or branch: ${repo.owner}/${repo.name}#${repo.defaultBranch}`);
+              default:
+                throw new Error(`GitHub API error (${status}): ${data.message || "Unknown error"}`);
+            }
+          } else if (error.code === "ENOTFOUND" || error.code === "ECONNREFUSED") {
+            throw new Error("Unable to connect to GitHub. Please check your internet connection");
+          } else if (error.code === "ETIMEDOUT") {
+            throw new Error("Request timed out. Please try again");
           }
-        } else if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
-          throw new Error('Unable to connect to GitHub. Please check your internet connection');
-        } else if (error.code === 'ETIMEDOUT') {
-          throw new Error('Request timed out. Please try again');
-        }
-        
-        throw error;
-      });
+
+          throw error;
+        });
 
       const files = response.data.tree || [];
-      
+
       // Filter markdown files and apply subdirectory filter
       // Comprehensive exclusion system to ensure only valid cheatsheets are imported
-      const markdownFiles = files.filter((file: any) => {
+      const markdownFiles = files.filter((file: Record<string, unknown>) => {
         // Basic requirements
-        const isMarkdown = file.path.endsWith('.md');
-        
+        const isMarkdown = (file.path as string)?.endsWith(".md");
+
         // Subdirectory logic: if subdirectory is set, only sync that subdirectory
         // If no subdirectory is set, sync ALL files in ALL subdirectories
-        const isInSubdir = !repo.subdirectory || file.path.startsWith(repo.subdirectory + '/');
-        
+        const filePath = file.path as string;
+        const isInSubdir = !repo.subdirectory || filePath.startsWith(repo.subdirectory + "/");
+
         // Debug logging for all files
         if (isMarkdown) {
-          console.log(`Processing file: ${file.path} (isMarkdown: ${isMarkdown}, isInSubdir: ${isInSubdir}, subdirectory: '${repo.subdirectory || 'none'}')`);
+          console.log(
+            `Processing file: ${filePath} (isMarkdown: ${isMarkdown}, isInSubdir: ${isInSubdir}, subdirectory: '${repo.subdirectory || "none"}')`,
+          );
         }
-        
+
         // Skip if not markdown or not in subdirectory
         if (!isMarkdown || !isInSubdir) {
           if (isMarkdown && !isInSubdir) {
-            console.log(`Excluding file (not in subdirectory): ${file.path} (subdirectory: ${repo.subdirectory || 'none'})`);
+            console.log(
+              `Excluding file (not in subdirectory): ${filePath} (subdirectory: ${repo.subdirectory || "none"})`,
+            );
           }
           return false;
         }
-        
+
         // Admin and documentation file exclusions - be more precise
-        const isNotAdminFile = !file.path.match(/^(README|CONTRIBUTING|index|index@2016)\.md$/i);
-        const isNotInGitHubDir = !file.path.startsWith('.github/');
-        const isNotCodeOfConduct = !file.path.match(/code[_-]of[_-]conduct\.md$/i);
-        const isNotLicense = !file.path.match(/^(LICENSE|LICENCE)\.md$/i);
-        const isNotChangelog = !file.path.match(/^(CHANGELOG|HISTORY)\.md$/i);
-        const isNotSecurity = !file.path.match(/^(SECURITY|SECURITY\.md)$/i);
-        const isNotContributing = !file.path.match(/^(CONTRIBUTING|CONTRIBUTING\.md)$/i);
-        const isNotPullRequestTemplate = !file.path.match(/pull_request_template\.md$/i);
-        const isNotIssueTemplate = !file.path.startsWith('.github/ISSUE_TEMPLATE/');
-        const isNotWorkflow = !file.path.startsWith('.github/workflows/');
-        const isNotReleaseNotes = !file.path.match(/^(RELEASES?|RELEASE[_-]NOTES?)\.md$/i);
-        const isNotAuthors = !file.path.match(/^(AUTHORS?|CONTRIBUTORS?)\.md$/i);
-        const isNotRoadmap = !file.path.match(/^(ROADMAP|ROAD[_-]MAP)\.md$/i);
-        const isNotTodo = !file.path.match(/^(TODO|TASKS?)\.md$/i);
-        const isNotInstallation = !file.path.match(/^(INSTALL|INSTALLATION)\.md$/i);
-        const isNotGettingStarted = !file.path.match(/^(GETTING[_-]STARTED|QUICK[_-]START)\.md$/i);
-        
+        const isNotAdminFile = !filePath.match(/^(README|CONTRIBUTING|index|index@2016)\.md$/i);
+        const isNotInGitHubDir = !filePath.startsWith(".github/");
+        const isNotCodeOfConduct = !filePath.match(/code[_-]of[_-]conduct\.md$/i);
+        const isNotLicense = !filePath.match(/^(LICENSE|LICENCE)\.md$/i);
+        const isNotChangelog = !filePath.match(/^(CHANGELOG|HISTORY)\.md$/i);
+        const isNotSecurity = !filePath.match(/^(SECURITY|SECURITY\.md)$/i);
+        const isNotContributing = !filePath.match(/^(CONTRIBUTING|CONTRIBUTING\.md)$/i);
+        const isNotPullRequestTemplate = !filePath.match(/pull_request_template\.md$/i);
+        const isNotIssueTemplate = !filePath.startsWith(".github/ISSUE_TEMPLATE/");
+        const isNotWorkflow = !filePath.startsWith(".github/workflows/");
+        const isNotReleaseNotes = !filePath.match(/^(RELEASES?|RELEASE[_-]NOTES?)\.md$/i);
+        const isNotAuthors = !filePath.match(/^(AUTHORS?|CONTRIBUTORS?)\.md$/i);
+        const isNotRoadmap = !filePath.match(/^(ROADMAP|ROAD[_-]MAP)\.md$/i);
+        const isNotTodo = !filePath.match(/^(TODO|TASKS?)\.md$/i);
+        const isNotInstallation = !filePath.match(/^(INSTALL|INSTALLATION)\.md$/i);
+        const isNotGettingStarted = !filePath.match(/^(GETTING[_-]STARTED|QUICK[_-]START)\.md$/i);
+
         // Directory and file pattern exclusions (as per requirements)
-        const isNotInUnderscoreDir = !file.path.match(/(^|\/)_[^/]+/); // Exclude dirs starting with _
-        const isNotAtSymbolFile = !file.path.includes('@'); // Exclude files with @ in name
-        const isNotInUnderscoreFile = !file.path.match(/(^|\/)_[^/]*\.md$/); // Exclude files starting with _ in filename
-        
+        const isNotInUnderscoreDir = !filePath.match(/(^|\/)_[^/]+/); // Exclude dirs starting with _
+        const isNotAtSymbolFile = !filePath.includes("@"); // Exclude files with @ in name
+        const isNotInUnderscoreFile = !filePath.match(/(^|\/)_[^/]*\.md$/); // Exclude files starting with _ in filename
+
         // Additional exclusions for common non-cheatsheet files
-        const isNotIndexFile = !file.path.match(/^(Index|IndexASVS|IndexMASVS|IndexProactiveControls|IndexTopTen)\.md$/i);
-        const isNotPrefaceFile = !file.path.match(/^(Preface|HelpGuide)\.md$/i);
-        const isNotProjectFile = !file.path.match(/^Project\.[^/]*\.md$/i);
-        
-        const shouldInclude = isNotAdminFile && 
-               isNotInGitHubDir && 
-               isNotCodeOfConduct && 
-               isNotLicense && 
-               isNotChangelog && 
-               isNotSecurity && 
-               isNotContributing && 
-               isNotPullRequestTemplate && 
-               isNotIssueTemplate && 
-               isNotWorkflow && 
-               isNotReleaseNotes && 
-               isNotAuthors && 
-               isNotRoadmap && 
-               isNotTodo && 
-               isNotInstallation && 
-               isNotGettingStarted &&
-               isNotInUnderscoreDir &&
-               isNotAtSymbolFile &&
-               isNotInUnderscoreFile &&
-               isNotIndexFile &&
-               isNotPrefaceFile &&
-               isNotProjectFile;
-        
+        const isNotIndexFile = !filePath.match(
+          /^(Index|IndexASVS|IndexMASVS|IndexProactiveControls|IndexTopTen)\.md$/i,
+        );
+        const isNotPrefaceFile = !filePath.match(/^(Preface|HelpGuide)\.md$/i);
+        const isNotProjectFile = !filePath.match(/^Project\.[^/]*\.md$/i);
+
+        const shouldInclude =
+          isNotAdminFile &&
+          isNotInGitHubDir &&
+          isNotCodeOfConduct &&
+          isNotLicense &&
+          isNotChangelog &&
+          isNotSecurity &&
+          isNotContributing &&
+          isNotPullRequestTemplate &&
+          isNotIssueTemplate &&
+          isNotWorkflow &&
+          isNotReleaseNotes &&
+          isNotAuthors &&
+          isNotRoadmap &&
+          isNotTodo &&
+          isNotInstallation &&
+          isNotGettingStarted &&
+          isNotInUnderscoreDir &&
+          isNotAtSymbolFile &&
+          isNotInUnderscoreFile &&
+          isNotIndexFile &&
+          isNotPrefaceFile &&
+          isNotProjectFile;
+
         // Debug logging for troubleshooting
         if (isMarkdown && isInSubdir) {
           if (!shouldInclude) {
-            console.log(`Excluding file: ${file.path} (admin: ${!isNotAdminFile}, github: ${!isNotInGitHubDir}, codeOfConduct: ${!isNotCodeOfConduct}, license: ${!isNotLicense}, changelog: ${!isNotChangelog}, security: ${!isNotSecurity}, contributing: ${!isNotContributing}, prTemplate: ${!isNotPullRequestTemplate}, issueTemplate: ${!isNotIssueTemplate}, workflow: ${!isNotWorkflow}, releaseNotes: ${!isNotReleaseNotes}, authors: ${!isNotAuthors}, roadmap: ${!isNotRoadmap}, todo: ${!isNotTodo}, installation: ${!isNotInstallation}, gettingStarted: ${!isNotGettingStarted}, underscoreDir: ${!isNotInUnderscoreDir}, atSymbol: ${!isNotAtSymbolFile}, underscoreFile: ${!isNotInUnderscoreFile}, index: ${!isNotIndexFile}, preface: ${!isNotPrefaceFile}, project: ${!isNotProjectFile})`);
+            console.log(
+              `Excluding file: ${filePath} (admin: ${!isNotAdminFile}, github: ${!isNotInGitHubDir}, codeOfConduct: ${!isNotCodeOfConduct}, license: ${!isNotLicense}, changelog: ${!isNotChangelog}, security: ${!isNotSecurity}, contributing: ${!isNotContributing}, prTemplate: ${!isNotPullRequestTemplate}, issueTemplate: ${!isNotIssueTemplate}, workflow: ${!isNotWorkflow}, releaseNotes: ${!isNotReleaseNotes}, authors: ${!isNotAuthors}, roadmap: ${!isNotRoadmap}, todo: ${!isNotTodo}, installation: ${!isNotInstallation}, gettingStarted: ${!isNotGettingStarted}, underscoreDir: ${!isNotInUnderscoreDir}, atSymbol: ${!isNotAtSymbolFile}, underscoreFile: ${!isNotInUnderscoreFile}, index: ${!isNotIndexFile}, preface: ${!isNotPrefaceFile}, project: ${!isNotProjectFile})`,
+            );
           } else {
-            console.log(`INCLUDING file: ${file.path}`);
+            console.log(`INCLUDING file: ${filePath}`);
           }
         }
-        
+
         return shouldInclude;
       });
 
       // Clear existing cheatsheets for this repository
       await this.deleteRepositoryCheatsheets(repo.id);
 
-      console.log(`Repository subdirectory setting: '${repo.subdirectory || 'none'}'`);
+      console.log(`Repository subdirectory setting: '${repo.subdirectory || "none"}'`);
       console.log(`Total files from GitHub API: ${files.length}`);
-      console.log(`Found ${markdownFiles.length} markdown files to process for ${repo.owner}/${repo.name}${repo.subdirectory ? ` in subdirectory '${repo.subdirectory}'` : ''}`);
+      console.log(
+        `Found ${markdownFiles.length} markdown files to process for ${repo.owner}/${repo.name}${repo.subdirectory ? ` in subdirectory '${repo.subdirectory}'` : ""}`,
+      );
       if (markdownFiles.length > 0) {
-        console.log('Files to process:', markdownFiles.map(f => f.path).slice(0, 10).join(', '));
+        console.log(
+          "Files to process:",
+          markdownFiles
+            .map((f) => f.path)
+            .slice(0, 10)
+            .join(", "),
+        );
         if (markdownFiles.length > 10) {
           console.log(`... and ${markdownFiles.length - 10} more files`);
         }
       } else {
-        console.log('NO FILES TO PROCESS - This is the problem!');
+        console.log("NO FILES TO PROCESS - This is the problem!");
       }
 
       let success = 0;
@@ -1722,44 +1758,47 @@ class Service {
       // Fetch content for each markdown file
       for (const file of markdownFiles) {
         try {
-          const contentUrl = `https://raw.githubusercontent.com/${repo.owner}/${repo.name}/${repo.defaultBranch}/${file.path}`;
-          const contentResponse = await axios.get(contentUrl, {
-            headers: {
-              Authorization: `Bearer ${accessToken}`,
-              Accept: "text/plain",
-              "User-Agent": "Cheatsheets-Remastered-Raycast",
-            },
-            timeout: 10000,
-          }).catch((error) => {
-            // Handle content fetching errors
-            if (error.response?.status === 404) {
-              throw new Error(`File not found: ${file.path}`);
-            } else if (error.response?.status === 403) {
-              throw new Error(`Access denied to file: ${file.path}`);
-            } else if (error.code === 'ETIMEDOUT') {
-              throw new Error(`Timeout fetching file: ${file.path}`);
-            }
-            throw error;
-          });
+          const filePath = file.path as string;
+          const contentUrl = `https://raw.githubusercontent.com/${repo.owner}/${repo.name}/${repo.defaultBranch}/${filePath}`;
+          const contentResponse = await axios
+            .get(contentUrl, {
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+                Accept: "text/plain",
+                "User-Agent": "Cheatsheets-Remastered-Raycast",
+              },
+              timeout: 10000,
+            })
+            .catch((error) => {
+              // Handle content fetching errors
+              if (error.response?.status === 404) {
+                throw new Error(`File not found: ${filePath}`);
+              } else if (error.response?.status === 403) {
+                throw new Error(`Access denied to file: ${filePath}`);
+              } else if (error.code === "ETIMEDOUT") {
+                throw new Error(`Timeout fetching file: ${filePath}`);
+              }
+              throw error;
+            });
 
           const content = contentResponse.data;
-          const slug = file.path.replace('.md', '');
+          const slug = filePath.replace(".md", "");
           const title = this.extractTitleFromContent(content) || this.generateTitleFromSlug(slug);
-          
+
           const cheatsheet: RepositoryCheatsheet = {
             id: `repo-${repo.id}-${slug}-${Date.now()}`,
             repositoryId: repo.id,
             slug,
             title,
             content,
-            filePath: file.path,
+            filePath: filePath,
             syncedAt: Date.now(),
           };
 
           await this.saveRepositoryCheatsheet(cheatsheet);
           success++;
         } catch (error) {
-          console.warn(`Failed to fetch content for ${file.path}:`, error);
+          console.warn(`Failed to fetch content for ${(file as Record<string, unknown>).path}:`, error);
           failed++;
         }
       }
@@ -1775,7 +1814,7 @@ class Service {
       showToast({
         style: Toast.Style.Success,
         title: "Sync Complete",
-        message: `Synced ${success} cheatsheets from ${repo.owner}/${repo.name}${repo.subdirectory ? ` (${repo.subdirectory}/)` : ''}${failed > 0 ? ` (${failed} failed)` : ''}`,
+        message: `Synced ${success} cheatsheets from ${repo.owner}/${repo.name}${repo.subdirectory ? ` (${repo.subdirectory}/)` : ""}${failed > 0 ? ` (${failed} failed)` : ""}`,
       });
 
       return { success, failed };
@@ -1792,10 +1831,10 @@ class Service {
 
   // Helper method to extract title from markdown content
   private static extractTitleFromContent(content: string): string | null {
-    const lines = content.split('\n');
+    const lines = content.split("\n");
     for (const line of lines) {
       const trimmed = line.trim();
-      if (trimmed.startsWith('# ')) {
+      if (trimmed.startsWith("# ")) {
         return trimmed.substring(2).trim();
       }
     }
@@ -1805,152 +1844,162 @@ class Service {
   // Helper method to generate title from slug
   private static generateTitleFromSlug(slug: string): string {
     return slug
-      .split('/')
+      .split("/")
       .pop()!
-      .split('-')
-      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-      .join(' ');
+      .split("-")
+      .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(" ");
   }
 
   // Test function to validate exclusion filters against sample repository patterns
   static testExclusionFilters(): void {
     const testFiles = [
       // Valid cheatsheets (should pass)
-      { path: 'cheatsheets/git.md', type: 'blob' },
-      { path: 'docs/javascript.md', type: 'blob' },
-      { path: 'guides/react.md', type: 'blob' },
-      { path: 'tutorials/python.md', type: 'blob' },
-      { path: 'cheatsheets/AJAX_Security_Cheat_Sheet.md', type: 'blob' },
-      { path: 'cheatsheets/Abuse_Case_Cheat_Sheet.md', type: 'blob' },
-      
+      { path: "cheatsheets/git.md", type: "blob" },
+      { path: "docs/javascript.md", type: "blob" },
+      { path: "guides/react.md", type: "blob" },
+      { path: "tutorials/python.md", type: "blob" },
+      { path: "cheatsheets/AJAX_Security_Cheat_Sheet.md", type: "blob" },
+      { path: "cheatsheets/Abuse_Case_Cheat_Sheet.md", type: "blob" },
+
       // Invalid files (should be excluded)
-      { path: 'README.md', type: 'blob' },
-      { path: 'LICENSE.md', type: 'blob' },
-      { path: 'CONTRIBUTING.md', type: 'blob' },
-      { path: '.github/README.md', type: 'blob' },
-      { path: '_includes/header.md', type: 'blob' },
-      { path: '_layouts/main.md', type: 'blob' },
-      { path: 'file@2023.md', type: 'blob' },
-      { path: 'index@2016.md', type: 'blob' },
-      { path: '_private.md', type: 'blob' },
-      { path: 'docs/_internal.md', type: 'blob' },
-      { path: 'CHANGELOG.md', type: 'blob' },
-      { path: 'SECURITY.md', type: 'blob' },
-      { path: 'AUTHORS.md', type: 'blob' },
-      { path: 'ROADMAP.md', type: 'blob' },
-      { path: 'TODO.md', type: 'blob' },
-      { path: 'INSTALL.md', type: 'blob' },
-      { path: 'GETTING_STARTED.md', type: 'blob' },
-      { path: '.github/workflows/ci.md', type: 'blob' },
-      { path: '.github/ISSUE_TEMPLATE/bug.md', type: 'blob' },
-      { path: 'pull_request_template.md', type: 'blob' },
-      { path: 'RELEASE_NOTES.md', type: 'blob' },
-      { path: 'CONTRIBUTORS.md', type: 'blob' },
-      { path: 'TASKS.md', type: 'blob' },
-      { path: 'INSTALLATION.md', type: 'blob' },
-      { path: 'QUICK_START.md', type: 'blob' },
-      { path: 'Index.md', type: 'blob' },
-      { path: 'IndexASVS.md', type: 'blob' },
-      { path: 'Preface.md', type: 'blob' },
-      { path: 'HelpGuide.md', type: 'blob' },
-      { path: 'Project.code-workspace.md', type: 'blob' },
-      
+      { path: "README.md", type: "blob" },
+      { path: "LICENSE.md", type: "blob" },
+      { path: "CONTRIBUTING.md", type: "blob" },
+      { path: ".github/README.md", type: "blob" },
+      { path: "_includes/header.md", type: "blob" },
+      { path: "_layouts/main.md", type: "blob" },
+      { path: "file@2023.md", type: "blob" },
+      { path: "index@2016.md", type: "blob" },
+      { path: "_private.md", type: "blob" },
+      { path: "docs/_internal.md", type: "blob" },
+      { path: "CHANGELOG.md", type: "blob" },
+      { path: "SECURITY.md", type: "blob" },
+      { path: "AUTHORS.md", type: "blob" },
+      { path: "ROADMAP.md", type: "blob" },
+      { path: "TODO.md", type: "blob" },
+      { path: "INSTALL.md", type: "blob" },
+      { path: "GETTING_STARTED.md", type: "blob" },
+      { path: ".github/workflows/ci.md", type: "blob" },
+      { path: ".github/ISSUE_TEMPLATE/bug.md", type: "blob" },
+      { path: "pull_request_template.md", type: "blob" },
+      { path: "RELEASE_NOTES.md", type: "blob" },
+      { path: "CONTRIBUTORS.md", type: "blob" },
+      { path: "TASKS.md", type: "blob" },
+      { path: "INSTALLATION.md", type: "blob" },
+      { path: "QUICK_START.md", type: "blob" },
+      { path: "Index.md", type: "blob" },
+      { path: "IndexASVS.md", type: "blob" },
+      { path: "Preface.md", type: "blob" },
+      { path: "HelpGuide.md", type: "blob" },
+      { path: "Project.code-workspace.md", type: "blob" },
+
       // Non-markdown files (should be excluded)
-      { path: 'script.js', type: 'blob' },
-      { path: 'style.css', type: 'blob' },
-      { path: 'package.json', type: 'blob' },
-      { path: 'config.yaml', type: 'blob' },
+      { path: "script.js", type: "blob" },
+      { path: "style.css", type: "blob" },
+      { path: "package.json", type: "blob" },
+      { path: "config.yaml", type: "blob" },
     ];
 
     const mockRepo = {
-      id: 'test-repo',
-      name: 'test-repo',
-      owner: 'test-owner',
-      defaultBranch: 'main',
+      id: "test-repo",
+      name: "test-repo",
+      owner: "test-owner",
+      defaultBranch: "main",
       subdirectory: undefined,
     };
 
     // Apply the same filtering logic as in syncRepositoryFiles
-    const filteredFiles = testFiles.filter((file: any) => {
-      const isMarkdown = file.path.endsWith('.md');
-      const isInSubdir = !mockRepo.subdirectory || file.path.startsWith(mockRepo.subdirectory + '/');
-      
+    const filteredFiles = testFiles.filter((file: Record<string, unknown>) => {
+      const filePath = file.path as string;
+      const isMarkdown = filePath.endsWith(".md");
+      const isInSubdir = !mockRepo.subdirectory || filePath.startsWith(mockRepo.subdirectory + "/");
+
       // Skip if not markdown or not in subdirectory
       if (!isMarkdown || !isInSubdir) {
         return false;
       }
-      
+
       // Admin and documentation file exclusions - be more precise
-      const isNotAdminFile = !file.path.match(/^(README|CONTRIBUTING|index|index@2016)\.md$/i);
-      const isNotInGitHubDir = !file.path.startsWith('.github/');
-      const isNotCodeOfConduct = !file.path.match(/code[_-]of[_-]conduct\.md$/i);
-      const isNotLicense = !file.path.match(/^(LICENSE|LICENCE)\.md$/i);
-      const isNotChangelog = !file.path.match(/^(CHANGELOG|HISTORY)\.md$/i);
-      const isNotSecurity = !file.path.match(/^(SECURITY|SECURITY\.md)$/i);
-      const isNotContributing = !file.path.match(/^(CONTRIBUTING|CONTRIBUTING\.md)$/i);
-      const isNotPullRequestTemplate = !file.path.match(/pull_request_template\.md$/i);
-      const isNotIssueTemplate = !file.path.startsWith('.github/ISSUE_TEMPLATE/');
-      const isNotWorkflow = !file.path.startsWith('.github/workflows/');
-      const isNotReleaseNotes = !file.path.match(/^(RELEASES?|RELEASE[_-]NOTES?)\.md$/i);
-      const isNotAuthors = !file.path.match(/^(AUTHORS?|CONTRIBUTORS?)\.md$/i);
-      const isNotRoadmap = !file.path.match(/^(ROADMAP|ROAD[_-]MAP)\.md$/i);
-      const isNotTodo = !file.path.match(/^(TODO|TASKS?)\.md$/i);
-      const isNotInstallation = !file.path.match(/^(INSTALL|INSTALLATION)\.md$/i);
-      const isNotGettingStarted = !file.path.match(/^(GETTING[_-]STARTED|QUICK[_-]START)\.md$/i);
-      
+      const isNotAdminFile = !filePath.match(/^(README|CONTRIBUTING|index|index@2016)\.md$/i);
+      const isNotInGitHubDir = !filePath.startsWith(".github/");
+      const isNotCodeOfConduct = !filePath.match(/code[_-]of[_-]conduct\.md$/i);
+      const isNotLicense = !filePath.match(/^(LICENSE|LICENCE)\.md$/i);
+      const isNotChangelog = !filePath.match(/^(CHANGELOG|HISTORY)\.md$/i);
+      const isNotSecurity = !filePath.match(/^(SECURITY|SECURITY\.md)$/i);
+      const isNotContributing = !filePath.match(/^(CONTRIBUTING|CONTRIBUTING\.md)$/i);
+      const isNotPullRequestTemplate = !filePath.match(/pull_request_template\.md$/i);
+      const isNotIssueTemplate = !filePath.startsWith(".github/ISSUE_TEMPLATE/");
+      const isNotWorkflow = !filePath.startsWith(".github/workflows/");
+      const isNotReleaseNotes = !filePath.match(/^(RELEASES?|RELEASE[_-]NOTES?)\.md$/i);
+      const isNotAuthors = !filePath.match(/^(AUTHORS?|CONTRIBUTORS?)\.md$/i);
+      const isNotRoadmap = !filePath.match(/^(ROADMAP|ROAD[_-]MAP)\.md$/i);
+      const isNotTodo = !filePath.match(/^(TODO|TASKS?)\.md$/i);
+      const isNotInstallation = !filePath.match(/^(INSTALL|INSTALLATION)\.md$/i);
+      const isNotGettingStarted = !filePath.match(/^(GETTING[_-]STARTED|QUICK[_-]START)\.md$/i);
+
       // Directory and file pattern exclusions
-      const isNotInUnderscoreDir = !file.path.match(/(^|\/)_[^/]+/);
-      const isNotAtSymbolFile = !file.path.includes('@');
-      const isNotInUnderscoreFile = !file.path.match(/_[^/]*\.md$/);
-      
+      const isNotInUnderscoreDir = !filePath.match(/(^|\/)_[^/]+/);
+      const isNotAtSymbolFile = !filePath.includes("@");
+      const isNotInUnderscoreFile = !filePath.match(/_[^/]*\.md$/);
+
       // Additional exclusions for common non-cheatsheet files
-      const isNotIndexFile = !file.path.match(/^(Index|IndexASVS|IndexMASVS|IndexProactiveControls|IndexTopTen)\.md$/i);
-      const isNotPrefaceFile = !file.path.match(/^(Preface|HelpGuide)\.md$/i);
-      const isNotProjectFile = !file.path.match(/^Project\.[^/]*\.md$/i);
-      
-      return isNotAdminFile && 
-             isNotInGitHubDir && 
-             isNotCodeOfConduct && 
-             isNotLicense && 
-             isNotChangelog && 
-             isNotSecurity && 
-             isNotContributing && 
-             isNotPullRequestTemplate && 
-             isNotIssueTemplate && 
-             isNotWorkflow && 
-             isNotReleaseNotes && 
-             isNotAuthors && 
-             isNotRoadmap && 
-             isNotTodo && 
-             isNotInstallation && 
-             isNotGettingStarted &&
-             isNotInUnderscoreDir &&
-             isNotAtSymbolFile &&
-             isNotInUnderscoreFile &&
-             isNotIndexFile &&
-             isNotPrefaceFile &&
-             isNotProjectFile;
+      const isNotIndexFile = !filePath.match(/^(Index|IndexASVS|IndexMASVS|IndexProactiveControls|IndexTopTen)\.md$/i);
+      const isNotPrefaceFile = !filePath.match(/^(Preface|HelpGuide)\.md$/i);
+      const isNotProjectFile = !filePath.match(/^Project\.[^/]*\.md$/i);
+
+      return (
+        isNotAdminFile &&
+        isNotInGitHubDir &&
+        isNotCodeOfConduct &&
+        isNotLicense &&
+        isNotChangelog &&
+        isNotSecurity &&
+        isNotContributing &&
+        isNotPullRequestTemplate &&
+        isNotIssueTemplate &&
+        isNotWorkflow &&
+        isNotReleaseNotes &&
+        isNotAuthors &&
+        isNotRoadmap &&
+        isNotTodo &&
+        isNotInstallation &&
+        isNotGettingStarted &&
+        isNotInUnderscoreDir &&
+        isNotAtSymbolFile &&
+        isNotInUnderscoreFile &&
+        isNotIndexFile &&
+        isNotPrefaceFile &&
+        isNotProjectFile
+      );
     });
 
-    console.log('Exclusion Filter Test Results:');
+    console.log("Exclusion Filter Test Results:");
     console.log(`Total test files: ${testFiles.length}`);
     console.log(`Filtered files: ${filteredFiles.length}`);
-    console.log('Valid cheatsheets that passed:');
-    filteredFiles.forEach(file => console.log(`  ✅ ${file.path}`));
-    
-    const expectedValid = ['cheatsheets/git.md', 'docs/javascript.md', 'guides/react.md', 'tutorials/python.md', 'cheatsheets/AJAX_Security_Cheat_Sheet.md', 'cheatsheets/Abuse_Case_Cheat_Sheet.md'];
-    const actualValid = filteredFiles.map(f => f.path);
-    
-    console.log('\nValidation:');
-    expectedValid.forEach(expected => {
+    console.log("Valid cheatsheets that passed:");
+    filteredFiles.forEach((file) => console.log(`  ✅ ${file.path as string}`));
+
+    const expectedValid = [
+      "cheatsheets/git.md",
+      "docs/javascript.md",
+      "guides/react.md",
+      "tutorials/python.md",
+      "cheatsheets/AJAX_Security_Cheat_Sheet.md",
+      "cheatsheets/Abuse_Case_Cheat_Sheet.md",
+    ];
+    const actualValid = filteredFiles.map((f) => f.path as string);
+
+    console.log("\nValidation:");
+    expectedValid.forEach((expected) => {
       const found = actualValid.includes(expected);
-      console.log(`${found ? '✅' : '❌'} ${expected} - ${found ? 'PASS' : 'FAIL'}`);
+      console.log(`${found ? "✅" : "❌"} ${expected} - ${found ? "PASS" : "FAIL"}`);
     });
-    
-    const unexpectedFiles = actualValid.filter(f => !expectedValid.includes(f));
+
+    const unexpectedFiles = actualValid.filter((f) => !expectedValid.includes(f));
     if (unexpectedFiles.length > 0) {
-      console.log('\nUnexpected files that passed:');
-      unexpectedFiles.forEach(file => console.log(`  ⚠️  ${file}`));
+      console.log("\nUnexpected files that passed:");
+      unexpectedFiles.forEach((file) => console.log(`  ⚠️  ${file}`));
     }
   }
 
@@ -1987,7 +2036,7 @@ class Service {
         (repo) =>
           repo.name.toLowerCase().includes(lowerQuery) ||
           repo.owner.toLowerCase().includes(lowerQuery) ||
-          repo.description?.toLowerCase().includes(lowerQuery)
+          repo.description?.toLowerCase().includes(lowerQuery),
       );
     } catch (error) {
       console.error("Failed to search repositories:", error);
@@ -2000,11 +2049,11 @@ class Service {
     try {
       const cheatsheetsJson = await LocalStorage.getItem<string>("repository-cheatsheets");
       const cheatsheets = cheatsheetsJson ? JSON.parse(cheatsheetsJson) : [];
-      
+
       if (repositoryId) {
         return cheatsheets.filter((sheet: RepositoryCheatsheet) => sheet.repositoryId === repositoryId);
       }
-      
+
       return cheatsheets;
     } catch (error) {
       console.warn("Failed to load repository cheatsheets:", error);
@@ -2016,13 +2065,13 @@ class Service {
     try {
       const cheatsheets = await this.getRepositoryCheatsheets();
       const existingIndex = cheatsheets.findIndex((sheet) => sheet.id === cheatsheet.id);
-      
+
       if (existingIndex >= 0) {
         cheatsheets[existingIndex] = cheatsheet;
       } else {
         cheatsheets.push(cheatsheet);
       }
-      
+
       await LocalStorage.setItem("repository-cheatsheets", JSON.stringify(cheatsheets));
     } catch (error) {
       console.error("Failed to save repository cheatsheet:", error);
@@ -2080,4 +2129,12 @@ function getSheets(files: File[]): string[] {
 }
 
 export default Service;
-export type { File, CustomCheatsheet, Preferences, OfflineCheatsheet, FavoriteCheatsheet, UserRepository, RepositoryCheatsheet };
+export type {
+  File,
+  CustomCheatsheet,
+  Preferences,
+  OfflineCheatsheet,
+  FavoriteCheatsheet,
+  UserRepository,
+  RepositoryCheatsheet,
+};

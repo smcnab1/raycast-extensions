@@ -1,6 +1,6 @@
 {
   "$schema": "https://www.raycast.com/schemas/extension.json",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "name": "cheatsheets-remastered",
   "title": "Cheatsheets Remastered",
   "description": "A remastered Cheatsheets extension with enhanced functionality, custom sheet creation, and an improved browsing experience.",
@@ -101,7 +101,6 @@
     "dev": "ray develop",
     "fix-lint": "ray lint --fix",
     "lint": "ray lint",
-    "normalize:icons": "node scripts/normalize-icons.js",
     "publish": "npx @raycast/api@latest publish"
   }
 }

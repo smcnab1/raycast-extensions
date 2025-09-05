@@ -1,8 +1,8 @@
 import React from "react";
 import { Form, ActionPanel, Action, Icon, showToast, Toast, LocalStorage, useNavigation } from "@raycast/api";
 import { useState } from "react";
-import Service from "./service";
 import { showFailureToast } from "@raycast/utils";
+import Service from "./service";
 
 type CreateFormValues = {
   title: string;

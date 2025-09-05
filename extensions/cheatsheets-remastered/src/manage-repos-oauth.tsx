@@ -1,9 +1,8 @@
 import React from "react";
 import { List, ActionPanel, Action, Icon, showToast, Toast, confirmAlert, Alert, useNavigation } from "@raycast/api";
 import { useState, useEffect } from "react";
-import { withAccessToken, getAccessToken } from "@raycast/utils";
+import { withAccessToken, getAccessToken, showFailureToast } from "@raycast/utils";
 import Service, { UserRepository } from "./service";
-import { showFailureToast } from "@raycast/utils";
 import { githubOAuth } from "./github-oauth";
 import { AddRepositoryForm } from "./add-repository-form";
 import { RepositoryDetailsWithAuth } from "./repository-details-oauth";
@@ -96,7 +95,7 @@ function ManageReposWithAuth() {
       showToast({
         style: Toast.Style.Success,
         title: "Sync Complete",
-        message: `Synced ${totalSuccess} cheatsheets from ${repos.length} repositories${totalFailed > 0 ? ` (${totalFailed} failed)` : ''}`,
+        message: `Synced ${totalSuccess} cheatsheets from ${repos.length} repositories${totalFailed > 0 ? ` (${totalFailed} failed)` : ""}`,
       });
 
       // Log detailed results
@@ -132,7 +131,7 @@ function ManageReposWithAuth() {
     (repo) =>
       repo.name.toLowerCase().includes(searchText.toLowerCase()) ||
       repo.owner.toLowerCase().includes(searchText.toLowerCase()) ||
-      repo.description?.toLowerCase().includes(searchText.toLowerCase())
+      repo.description?.toLowerCase().includes(searchText.toLowerCase()),
   );
 
   return (
@@ -170,11 +169,7 @@ function ManageReposWithAuth() {
           actions={
             <ActionPanel>
               <Action title="Refresh" icon={Icon.ArrowClockwise} onAction={loadRepos} />
-              <Action
-                title="Sync All Repositories"
-                icon={Icon.ArrowClockwise}
-                onAction={handleSyncAllRepos}
-              />
+              <Action title="Sync All Repositories" icon={Icon.ArrowClockwise} onAction={handleSyncAllRepos} />
               <Action
                 title="Add Repository"
                 icon={Icon.Plus}
@@ -194,7 +189,9 @@ function ManageReposWithAuth() {
               { text: repo.owner, icon: { source: `https://github.com/${repo.owner}.png`, fallback: Icon.Person } },
               { text: repo.defaultBranch, icon: Icon.Code },
               ...(repo.subdirectory ? [{ text: repo.subdirectory, icon: Icon.Folder }] : []),
-              ...(repo.lastSyncedAt ? [{ text: formatRelativeTime(repo.lastSyncedAt), icon: Icon.ArrowClockwise }] : []),
+              ...(repo.lastSyncedAt
+                ? [{ text: formatRelativeTime(repo.lastSyncedAt), icon: Icon.ArrowClockwise }]
+                : []),
             ]}
             actions={
               <ActionPanel>

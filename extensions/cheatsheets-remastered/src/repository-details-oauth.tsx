@@ -1,13 +1,11 @@
 import React from "react";
-import { Detail, ActionPanel, Action, Icon, showToast, Toast, useNavigation } from "@raycast/api";
+import { Detail, ActionPanel, Action, Icon, showToast, Toast } from "@raycast/api";
 import { useState, useEffect } from "react";
-import { withAccessToken, getAccessToken } from "@raycast/utils";
+import { withAccessToken, getAccessToken, showFailureToast } from "@raycast/utils";
 import Service, { UserRepository, RepositoryCheatsheet } from "./service";
-import { showFailureToast } from "@raycast/utils";
 import { githubOAuth } from "./github-oauth";
 
 function RepositoryDetailsComponent({ repo, onUpdated }: { repo: UserRepository; onUpdated?: () => void }) {
-  const { push } = useNavigation();
   const [isLoading, setIsLoading] = useState(false);
   const [cheatsheets, setCheatsheets] = useState<RepositoryCheatsheet[]>([]);
   const { token } = getAccessToken();
@@ -15,7 +13,7 @@ function RepositoryDetailsComponent({ repo, onUpdated }: { repo: UserRepository;
   useEffect(() => {
     // Record access when component mounts
     Service.recordRepositoryAccess(repo.id);
-    
+
     // Load cheatsheets for this repository immediately
     loadCheatsheets();
   }, [repo.id]);
@@ -69,15 +67,19 @@ function RepositoryDetailsComponent({ repo, onUpdated }: { repo: UserRepository;
     }
   };
 
-  const cheatsheetsMarkdown = cheatsheets.length > 0 
-    ? `## 📚 Synced Cheatsheets (${cheatsheets.length})
+  const cheatsheetsMarkdown =
+    cheatsheets.length > 0
+      ? `## 📚 Synced Cheatsheets (${cheatsheets.length})
 
-${cheatsheets.map(sheet => 
-  `- **${sheet.title}**  
+${cheatsheets
+  .map(
+    (sheet) =>
+      `- **${sheet.title}**  
     \`${sheet.filePath}\`  
-    ${sheet.lastAccessedAt ? `Last viewed: ${formatRelativeDate(sheet.lastAccessedAt)}` : `Synced: ${formatRelativeDate(sheet.syncedAt)}`}`
-).join('\n\n')}`
-    : `## 📚 Synced Cheatsheets
+    ${sheet.lastAccessedAt ? `Last viewed: ${formatRelativeDate(sheet.lastAccessedAt)}` : `Synced: ${formatRelativeDate(sheet.syncedAt)}`}`,
+  )
+  .join("\n\n")}`
+      : `## 📚 Synced Cheatsheets
 
 No cheatsheets found. Use the **Sync Repository** action to fetch cheatsheet files from this repository.`;
 
@@ -87,55 +89,34 @@ No cheatsheets found. Use the **Sync Repository** action to fetch cheatsheet fil
       markdown={cheatsheetsMarkdown}
       metadata={
         <Detail.Metadata>
-          <Detail.Metadata.Label 
-            title="Repository" 
-            text={repo.name} 
-          />
-          <Detail.Metadata.Label 
-            title="Owner" 
-            text={repo.owner} 
+          <Detail.Metadata.Label title="Repository" text={repo.name} />
+          <Detail.Metadata.Label
+            title="Owner"
+            text={repo.owner}
             icon={{ source: `https://github.com/${repo.owner}.png`, fallback: Icon.Person }}
           />
-          {repo.description && (
-            <Detail.Metadata.Label title="Description" text={repo.description} />
-          )}
+          {repo.description && <Detail.Metadata.Label title="Description" text={repo.description} />}
           <Detail.Metadata.Separator />
-          <Detail.Metadata.Link
-            title="URL"
-            target={repo.url}
-            text={repo.url}
-          />
+          <Detail.Metadata.Link title="URL" target={repo.url} text={repo.url} />
           <Detail.Metadata.Label title="Default Branch" text={repo.defaultBranch} />
-          <Detail.Metadata.Label 
-            title="Visibility" 
-            text={repo.isPrivate ? "Private" : "Public"} 
+          <Detail.Metadata.Label
+            title="Visibility"
+            text={repo.isPrivate ? "Private" : "Public"}
             icon={repo.isPrivate ? Icon.Lock : Icon.Globe}
           />
-          {repo.subdirectory && (
-            <Detail.Metadata.Label title="Subdirectory" text={repo.subdirectory} />
-          )}
+          {repo.subdirectory && <Detail.Metadata.Label title="Subdirectory" text={repo.subdirectory} />}
           <Detail.Metadata.Separator />
-          <Detail.Metadata.Label 
-            title="Added" 
-            text={formatDate(repo.addedAt)} 
-          />
+          <Detail.Metadata.Label title="Added" text={formatDate(repo.addedAt)} />
           {repo.lastAccessedAt && (
-            <Detail.Metadata.Label 
-              title="Last Accessed" 
-              text={formatRelativeDate(repo.lastAccessedAt)} 
-            />
+            <Detail.Metadata.Label title="Last Accessed" text={formatRelativeDate(repo.lastAccessedAt)} />
           )}
-          <Detail.Metadata.Label 
-            title="Last Synced" 
-            text={repo.lastSyncedAt ? formatRelativeDate(repo.lastSyncedAt) : "Never"} 
+          <Detail.Metadata.Label
+            title="Last Synced"
+            text={repo.lastSyncedAt ? formatRelativeDate(repo.lastSyncedAt) : "Never"}
             icon={repo.lastSyncedAt ? Icon.CheckCircle : Icon.ExclamationMark}
           />
           <Detail.Metadata.Separator />
-          <Detail.Metadata.Label 
-            title="Cheatsheets" 
-            text={`${cheatsheets.length} found`}
-            icon={Icon.Document}
-          />
+          <Detail.Metadata.Label title="Cheatsheets" text={`${cheatsheets.length} found`} icon={Icon.Document} />
         </Detail.Metadata>
       }
       actions={
@@ -185,9 +166,7 @@ No cheatsheets found. Use the **Sync Repository** action to fetch cheatsheet fil
                 title="Copy Cheatsheet List"
                 icon={Icon.CopyClipboard}
                 shortcut={{ modifiers: ["cmd", "shift"], key: "l" }}
-                content={cheatsheets
-                  .map(sheet => `- ${sheet.title} (${sheet.filePath})`)
-                  .join('\n')}
+                content={cheatsheets.map((sheet) => `- ${sheet.title} (${sheet.filePath})`).join("\n")}
                 onCopy={() => {
                   showToast({
                     style: Toast.Style.Success,

@@ -145,16 +145,16 @@ function Command() {
   // Create unified cheatsheet list
   const createUnifiedList = async (): Promise<UnifiedCheatsheet[]> => {
     const unified: UnifiedCheatsheet[] = [];
-    
+
     // Get hidden cheatsheets to mark them
     const hiddenCheatsheets = await Service.getHiddenCheatsheets();
-    const hiddenKeys = new Set(hiddenCheatsheets.map(h => h.key));
+    const hiddenKeys = new Set(hiddenCheatsheets.map((h) => h.key));
 
     // Add custom cheatsheets
     customSheets.forEach((sheet) => {
       const key = `custom:${sheet.id}`;
       const isHidden = hiddenKeys.has(key);
-      
+
       unified.push({
         id: sheet.id,
         type: "custom",
@@ -169,7 +169,7 @@ function Command() {
     sheets.forEach((sheet) => {
       const key = `default:${sheet}`;
       const isHidden = hiddenKeys.has(key);
-      
+
       unified.push({
         id: sheet,
         type: "default",
@@ -182,15 +182,15 @@ function Command() {
 
     // Add repository cheatsheets with proper repository names
     const userRepos = await Service.getUserRepositories();
-    const repoMap = new Map(userRepos.map(repo => [repo.id, repo]));
-    
+    const repoMap = new Map(userRepos.map((repo) => [repo.id, repo]));
+
     repositorySheets.forEach((sheet) => {
       const key = `repository:${sheet.slug}`;
       const isHidden = hiddenKeys.has(key);
       const repo = repoMap.get(sheet.repositoryId);
-      const repositoryName = repo ? `${repo.owner}/${repo.name}` : sheet.filePath.split('/')[0];
+      const repositoryName = repo ? `${repo.owner}/${repo.name}` : sheet.filePath.split("/")[0];
       const isFavorited = favorites.some((fav) => fav.slug === sheet.slug && fav.type === "repository");
-      
+
       unified.push({
         id: sheet.id,
         type: "repository",
@@ -422,7 +422,6 @@ function Command() {
     }
   }
 
-
   if (error) {
     return (
       <Detail
@@ -536,23 +535,26 @@ function Command() {
               title={item.title}
               subtitle=""
               icon={
-                item.type === "custom" 
-                  ? Icon.Box 
-                  : item.type === "repository" 
-                  ? Icon.Globe 
-                  : item.type === "default" 
-                  ? Icon.Box 
-                  : Icon.Document
+                item.type === "custom"
+                  ? Icon.Box
+                  : item.type === "repository"
+                    ? Icon.Globe
+                    : item.type === "default"
+                      ? Icon.Box
+                      : Icon.Document
               }
               accessories={[
                 { text: "Recent", icon: Icon.Clock },
                 ...(item.isHidden ? [{ icon: Icon.EyeDisabled, tooltip: "Hidden" }] : []),
-                ...(item.type === "custom" 
-                  ? (customSheets.find((s) => s.id === item.id)?.tags || []).slice(0, 3).map(tag => ({ text: tag, icon: Icon.Tag }))
+                ...(item.type === "custom"
+                  ? (customSheets.find((s) => s.id === item.id)?.tags || [])
+                      .slice(0, 3)
+                      .map((tag) => ({ text: tag, icon: Icon.Tag }))
                   : item.type === "default"
-                  ? (Service.getDefaultMetadata(item.slug)?.tags || []).slice(0, 3).map(tag => ({ text: tag, icon: Icon.Tag }))
-                  : []
-                )
+                    ? (Service.getDefaultMetadata(item.slug)?.tags || [])
+                        .slice(0, 3)
+                        .map((tag) => ({ text: tag, icon: Icon.Tag }))
+                    : []),
               ]}
               actions={
                 <ActionPanel>
@@ -588,34 +590,37 @@ function Command() {
             item.type === "custom"
               ? customSheets.find((s) => s.id === item.id)?.description || ""
               : item.type === "repository"
-              ? item.repositoryName || ""
-              : ""
+                ? item.repositoryName || ""
+                : ""
           }
           icon={
-            item.type === "custom" 
-              ? Icon.Brush 
-              : item.type === "repository" 
-              ? Icon.Globe 
-              : item.type === "default" 
-              ? Icon.Box 
-              : Icon.Document
+            item.type === "custom"
+              ? Icon.Brush
+              : item.type === "repository"
+                ? Icon.Globe
+                : item.type === "default"
+                  ? Icon.Box
+                  : Icon.Document
           }
           keywords={
             item.type === "custom"
               ? customSheets.find((s) => s.id === item.id)?.tags || []
               : item.type === "repository"
-              ? ["repository", "github", item.repositoryName || ""].filter(Boolean)
-              : Service.getDefaultMetadata(item.slug)?.tags || []
+                ? ["repository", "github", item.repositoryName || ""].filter(Boolean)
+                : Service.getDefaultMetadata(item.slug)?.tags || []
           }
           accessories={[
             ...(item.isFavorited ? [{ icon: Icon.Star, tooltip: "Favorited" }] : []),
             ...(item.isHidden ? [{ icon: Icon.EyeDisabled, tooltip: "Hidden" }] : []),
-            ...(item.type === "custom" 
-              ? (customSheets.find((s) => s.id === item.id)?.tags || []).slice(0, 3).map(tag => ({ text: tag, icon: Icon.Tag }))
+            ...(item.type === "custom"
+              ? (customSheets.find((s) => s.id === item.id)?.tags || [])
+                  .slice(0, 3)
+                  .map((tag) => ({ text: tag, icon: Icon.Tag }))
               : item.type === "default"
-              ? (Service.getDefaultMetadata(item.slug)?.tags || []).slice(0, 3).map(tag => ({ text: tag, icon: Icon.Tag }))
-              : []
-            )
+                ? (Service.getDefaultMetadata(item.slug)?.tags || [])
+                    .slice(0, 3)
+                    .map((tag) => ({ text: tag, icon: Icon.Tag }))
+                : []),
           ]}
           actions={
             <ActionPanel>
@@ -759,62 +764,64 @@ function getSheets(files: ServiceFile[]): string[] {
     .filter((file) => {
       const isDir = file.type === "tree";
       const isMarkdown = file.path.endsWith(".md");
-      
+
       // Skip if directory or not markdown
       if (isDir || !isMarkdown) {
         return false;
       }
-      
+
       // Admin and documentation file exclusions - be more precise
       const isNotAdminFile = !file.path.match(/^(README|CONTRIBUTING|index|index@2016)\.md$/i);
-      const isNotInGitHubDir = !file.path.startsWith('.github/');
+      const isNotInGitHubDir = !file.path.startsWith(".github/");
       const isNotCodeOfConduct = !file.path.match(/code[_-]of[_-]conduct\.md$/i);
       const isNotLicense = !file.path.match(/^(LICENSE|LICENCE)\.md$/i);
       const isNotChangelog = !file.path.match(/^(CHANGELOG|HISTORY)\.md$/i);
       const isNotSecurity = !file.path.match(/^(SECURITY|SECURITY\.md)$/i);
       const isNotContributing = !file.path.match(/^(CONTRIBUTING|CONTRIBUTING\.md)$/i);
       const isNotPullRequestTemplate = !file.path.match(/pull_request_template\.md$/i);
-      const isNotIssueTemplate = !file.path.startsWith('.github/ISSUE_TEMPLATE/');
-      const isNotWorkflow = !file.path.startsWith('.github/workflows/');
+      const isNotIssueTemplate = !file.path.startsWith(".github/ISSUE_TEMPLATE/");
+      const isNotWorkflow = !file.path.startsWith(".github/workflows/");
       const isNotReleaseNotes = !file.path.match(/^(RELEASES?|RELEASE[_-]NOTES?)\.md$/i);
       const isNotAuthors = !file.path.match(/^(AUTHORS?|CONTRIBUTORS?)\.md$/i);
       const isNotRoadmap = !file.path.match(/^(ROADMAP|ROAD[_-]MAP)\.md$/i);
       const isNotTodo = !file.path.match(/^(TODO|TASKS?)\.md$/i);
       const isNotInstallation = !file.path.match(/^(INSTALL|INSTALLATION)\.md$/i);
       const isNotGettingStarted = !file.path.match(/^(GETTING[_-]STARTED|QUICK[_-]START)\.md$/i);
-      
+
       // Directory and file pattern exclusions
       const isNotInUnderscoreDir = !file.path.match(/(^|\/)_[^/]+/); // Exclude dirs starting with _
-      const isNotAtSymbolFile = !file.path.includes('@'); // Exclude files with @ in name
+      const isNotAtSymbolFile = !file.path.includes("@"); // Exclude files with @ in name
       const isNotInUnderscoreFile = !file.path.match(/_[^/]*\.md$/); // Exclude files starting with _
-      
+
       // Additional exclusions for common non-cheatsheet files
       const isNotIndexFile = !file.path.match(/^(Index|IndexASVS|IndexMASVS|IndexProactiveControls|IndexTopTen)\.md$/i);
       const isNotPrefaceFile = !file.path.match(/^(Preface|HelpGuide)\.md$/i);
       const isNotProjectFile = !file.path.match(/^Project\.[^/]*\.md$/i);
-      
-      return isNotAdminFile && 
-             isNotInGitHubDir && 
-             isNotCodeOfConduct && 
-             isNotLicense && 
-             isNotChangelog && 
-             isNotSecurity && 
-             isNotContributing && 
-             isNotPullRequestTemplate && 
-             isNotIssueTemplate && 
-             isNotWorkflow && 
-             isNotReleaseNotes && 
-             isNotAuthors && 
-             isNotRoadmap && 
-             isNotTodo && 
-             isNotInstallation && 
-             isNotGettingStarted &&
-             isNotInUnderscoreDir &&
-             isNotAtSymbolFile &&
-             isNotInUnderscoreFile &&
-             isNotIndexFile &&
-             isNotPrefaceFile &&
-             isNotProjectFile;
+
+      return (
+        isNotAdminFile &&
+        isNotInGitHubDir &&
+        isNotCodeOfConduct &&
+        isNotLicense &&
+        isNotChangelog &&
+        isNotSecurity &&
+        isNotContributing &&
+        isNotPullRequestTemplate &&
+        isNotIssueTemplate &&
+        isNotWorkflow &&
+        isNotReleaseNotes &&
+        isNotAuthors &&
+        isNotRoadmap &&
+        isNotTodo &&
+        isNotInstallation &&
+        isNotGettingStarted &&
+        isNotInUnderscoreDir &&
+        isNotAtSymbolFile &&
+        isNotInUnderscoreFile &&
+        isNotIndexFile &&
+        isNotPrefaceFile &&
+        isNotProjectFile
+      );
     })
     .map((file) => file.path.replace(".md", ""));
 }
@@ -1175,43 +1182,40 @@ function CreateCustomSheetForm({ onCreated }: CreateCustomSheetProps) {
 
 // Repository cheatsheet view component
 function RepositorySheetView({ sheet }: { sheet: RepositoryCheatsheet }) {
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [isLoading] = useState(false);
   const [repository, setRepository] = useState<{ owner: string; name: string; defaultBranch: string } | null>(null);
 
   useEffect(() => {
     // Record view for repository sheet
     Service.recordRepositoryCheatsheetAccess(sheet.repositoryId);
-    
+
     // Fetch repository information
     const fetchRepository = async () => {
       try {
         const userRepos = await Service.getUserRepositories();
-        const repo = userRepos.find(r => r.id === sheet.repositoryId);
+        const repo = userRepos.find((r) => r.id === sheet.repositoryId);
         if (repo) {
           setRepository({
             owner: repo.owner,
             name: repo.name,
-            defaultBranch: repo.defaultBranch
+            defaultBranch: repo.defaultBranch,
           });
         }
       } catch (err) {
-        console.error('Failed to fetch repository info:', err);
+        console.error("Failed to fetch repository info:", err);
       }
     };
-    
+
     fetchRepository();
   }, [sheet.repositoryId]);
 
   const processedContent = formatHtmlElements(formatTables(stripTemplateTags(stripFrontmatter(sheet.content))));
 
   // Construct GitHub URLs
-  const githubUrl = repository 
+  const githubUrl = repository
     ? `https://github.com/${repository.owner}/${repository.name}/blob/${repository.defaultBranch}/${sheet.filePath}`
     : null;
-  const repositoryUrl = repository
-    ? `https://github.com/${repository.owner}/${repository.name}`
-    : null;
+  const repositoryUrl = repository ? `https://github.com/${repository.owner}/${repository.name}` : null;
 
   return (
     <Detail
@@ -1228,29 +1232,22 @@ function RepositorySheetView({ sheet }: { sheet: RepositoryCheatsheet }) {
               text={`${repository.owner}/${repository.name}`}
             />
           ) : (
-            <Detail.Metadata.Label 
-              title="Repository" 
-              text={sheet.repositoryId} 
-            />
+            <Detail.Metadata.Label title="Repository" text={sheet.repositoryId} />
           )}
           {githubUrl ? (
-            <Detail.Metadata.Link
-              title="File Path"
-              target={githubUrl}
-              text={sheet.filePath}
-            />
+            <Detail.Metadata.Link title="File Path" target={githubUrl} text={sheet.filePath} />
           ) : (
             <Detail.Metadata.Label title="File Path" text={sheet.filePath} />
           )}
-          <Detail.Metadata.Label 
-            title="Synced" 
-            text={new Date(sheet.syncedAt).toLocaleDateString()} 
+          <Detail.Metadata.Label
+            title="Synced"
+            text={new Date(sheet.syncedAt).toLocaleDateString()}
             icon={Icon.Clock}
           />
           {sheet.lastAccessedAt && (
-            <Detail.Metadata.Label 
-              title="Last Accessed" 
-              text={new Date(sheet.lastAccessedAt).toLocaleDateString()} 
+            <Detail.Metadata.Label
+              title="Last Accessed"
+              text={new Date(sheet.lastAccessedAt).toLocaleDateString()}
               icon={Icon.Eye}
             />
           )}
@@ -1260,43 +1257,15 @@ function RepositorySheetView({ sheet }: { sheet: RepositoryCheatsheet }) {
         <ActionPanel>
           {repositoryUrl && (
             <ActionPanel.Section title="GitHub">
-              <Action.OpenInBrowser
-                title="View Repository"
-                url={repositoryUrl}
-                icon={Icon.Globe}
-              />
-              {githubUrl && (
-                <Action.OpenInBrowser
-                  title="View File on GitHub"
-                  url={githubUrl}
-                  icon={Icon.Document}
-                />
-              )}
-              <Action.CopyToClipboard
-                title="Copy Repository URL"
-                content={repositoryUrl}
-                icon={Icon.Clipboard}
-              />
-              {githubUrl && (
-                <Action.CopyToClipboard
-                  title="Copy File URL"
-                  content={githubUrl}
-                  icon={Icon.Clipboard}
-                />
-              )}
+              <Action.OpenInBrowser title="View Repository" url={repositoryUrl} icon={Icon.Globe} />
+              {githubUrl && <Action.OpenInBrowser title="View File on GitHub" url={githubUrl} icon={Icon.Document} />}
+              <Action.CopyToClipboard title="Copy Repository URL" content={repositoryUrl} icon={Icon.Clipboard} />
+              {githubUrl && <Action.CopyToClipboard title="Copy File URL" content={githubUrl} icon={Icon.Clipboard} />}
             </ActionPanel.Section>
           )}
           <ActionPanel.Section title="Actions">
-            <Action.CopyToClipboard 
-              title="Copy Content" 
-              content={sheet.content} 
-              icon={Icon.CopyClipboard} 
-            />
-            <Action.CopyToClipboard 
-              title="Copy Title" 
-              content={sheet.title} 
-              icon={Icon.CopyClipboard} 
-            />
+            <Action.CopyToClipboard title="Copy Content" content={sheet.content} icon={Icon.CopyClipboard} />
+            <Action.CopyToClipboard title="Copy Title" content={sheet.title} icon={Icon.CopyClipboard} />
           </ActionPanel.Section>
         </ActionPanel>
       }
