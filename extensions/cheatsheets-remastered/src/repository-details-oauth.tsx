@@ -1,12 +1,15 @@
 import React from "react";
 import { Detail, ActionPanel, Action, Icon, showToast, Toast, useNavigation } from "@raycast/api";
 import { useState, useEffect } from "react";
+import { withAccessToken, getAccessToken } from "@raycast/utils";
 import Service, { UserRepository } from "./service";
 import { showFailureToast } from "@raycast/utils";
+import { githubOAuth } from "./github-oauth";
 
-export function RepositoryDetails({ repo, onUpdated }: { repo: UserRepository; onUpdated?: () => void }) {
+function RepositoryDetailsComponent({ repo, onUpdated }: { repo: UserRepository; onUpdated?: () => void }) {
   const { push } = useNavigation();
   const [isLoading, setIsLoading] = useState(false);
+  const { token } = getAccessToken();
 
   useEffect(() => {
     // Record access when component mounts
@@ -80,12 +83,7 @@ Use the actions below to interact with this repository:
               onAction={async () => {
                 setIsLoading(true);
                 try {
-                  // Note: This component doesn't have OAuth access, so sync is not available
-                  showToast({
-                    style: Toast.Style.Failure,
-                    title: "Sync Not Available",
-                    message: "Please use the OAuth-enabled Repo Manager for syncing",
-                  });
+                  await Service.syncRepositoryFiles(repo, token);
                   if (onUpdated) {
                     onUpdated();
                   }
@@ -132,7 +130,8 @@ Use the actions below to interact with this repository:
   );
 }
 
-// Import the EditRepositoryForm component
+// Import the components we need
 import { EditRepositoryForm } from "./edit-repository-form";
 
-export default RepositoryDetails;
+// Export the OAuth-wrapped component
+export const RepositoryDetailsWithAuth = withAccessToken(githubOAuth)(RepositoryDetailsComponent);

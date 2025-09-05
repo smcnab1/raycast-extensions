@@ -1474,7 +1474,6 @@ class Service {
       repos[index] = {
         ...repos[index],
         ...updates,
-        updatedAt: Date.now(),
       };
 
       await LocalStorage.setItem("user-repositories", JSON.stringify(repos));
@@ -1492,14 +1491,9 @@ class Service {
     }
   }
 
-  // Sync repository files from GitHub
-  static async syncRepositoryFiles(repo: UserRepository): Promise<{ success: number; failed: number }> {
+  // Sync repository files from GitHub using OAuth token
+  static async syncRepositoryFiles(repo: UserRepository, accessToken: string): Promise<{ success: number; failed: number }> {
     try {
-      const prefs = this.getPreferences() as ExtendedPreferences;
-      if (!prefs.githubToken) {
-        throw new Error("GitHub token required for repository sync");
-      }
-
       showToast({
         style: Toast.Style.Animated,
         title: "Syncing Repository",
@@ -1513,7 +1507,7 @@ class Service {
       const response = await axios.get(treeUrl, {
         params,
         headers: {
-          Authorization: `Bearer ${prefs.githubToken}`,
+          Authorization: `Bearer ${accessToken}`,
           Accept: "application/vnd.github.v3+json",
           "User-Agent": "Cheatsheets-Remastered-Raycast",
         },

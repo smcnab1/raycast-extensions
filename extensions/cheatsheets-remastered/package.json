@@ -47,9 +47,9 @@
     },
     {
       "name": "manage-repos",
-      "title": "Repos Manager",
+      "title": "Repo Manager",
       "subtitle": "Cheatsheets Remastered",
-      "description": "Manage user-specified repositories (list, add, remove)",
+      "description": "Manage user-specified repositories (list, add, remove) with GitHub OAuth",
       "mode": "view"
     }
   ],

@@ -78,7 +78,7 @@ export function EditRepositoryForm({ repo, onUpdated }: { repo: UserRepository; 
           <Action.SubmitForm title="Update Repository" onSubmit={handleSubmit} icon={Icon.Check} />
           <Action
             title="Cancel"
-            icon={Icon.XMark}
+            icon={Icon.Xmark}
             onAction={pop}
           />
         </ActionPanel>
