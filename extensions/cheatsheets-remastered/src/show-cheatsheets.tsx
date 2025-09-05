@@ -22,9 +22,9 @@ import { showFailureToast, useFrecencySorting } from "@raycast/utils";
 
 import Service, { CustomCheatsheet, OfflineCheatsheet, FavoriteCheatsheet, RepositoryCheatsheet } from "./service";
 import type { File as ServiceFile } from "./service";
-import { stripFrontmatter, stripTemplateTags, formatTables } from "./utils";
-// GitHub icon for repository cheatsheets
-const githubIcon = "github.png";
+import { stripFrontmatter, stripTemplateTags, formatTables, formatHtmlElements } from "./utils";
+// GitHub icon for repository cheatsheets - using built-in icon
+const githubIcon = "../assets/github.png";
 
 // (removed unused getCheatsheetIcon)
 
@@ -426,10 +426,10 @@ function Command() {
       onSearchTextChange={setSearchQuery}
       searchBarAccessory={
         <List.Dropdown tooltip="Filter" value={filter} onChange={(value) => setFilter(value as FilterType)}>
-          <List.Dropdown.Item title="All" value="all" />
-          <List.Dropdown.Item title="Custom" value="custom" />
-          <List.Dropdown.Item title="Default" value="default" />
-          <List.Dropdown.Item title="GitHub" value="repository" />
+          <List.Dropdown.Item title="All" value="all" icon={Icon.AppWindowList} />
+          <List.Dropdown.Item title="Custom" value="custom" icon={Icon.Brush} />
+          <List.Dropdown.Item title="Default" value="default" icon={Icon.Box} />
+          <List.Dropdown.Item title="GitHub" value="repository" icon={githubIcon} />
         </List.Dropdown>
       }
       actions={
@@ -468,21 +468,6 @@ function Command() {
       }
     >
       <List.Section title="Overview" subtitle={`${searchResults.length} items • ${filter} • ${sort}`} />
-
-      {error && (
-        <List.Section title="Error" subtitle="Failed to load cheatsheets">
-          <List.Item
-            title="Error"
-            subtitle={error}
-            icon={Icon.ExclamationMark}
-            actions={
-              <ActionPanel>
-                <Action title="Retry" icon={Icon.ArrowClockwise} onAction={loadData} />
-              </ActionPanel>
-            }
-          />
-        </List.Section>
-      )}
 
       {searchResults.length === 0 && !isLoading && !error && (
         <List.EmptyView
@@ -549,7 +534,7 @@ function Command() {
                 item.type === "custom"
                   ? customSheets.find((s) => s.id === item.id)?.iconKey
                     ? Service.iconForKey(customSheets.find((s) => s.id === item.id)!.iconKey!)
-                    : Icon.Tag
+                    : Icon.Brush
                   : item.type === "repository"
                   ? githubIcon
                   : Service.isLocalCheatsheet(item.slug)
@@ -559,19 +544,19 @@ function Command() {
               accessories={[
                 {
                   icon: item.type === "custom" 
-                    ? Icon.Tag 
+                    ? Icon.Brush 
                     : item.type === "repository" 
                     ? githubIcon 
                     : Service.isLocalCheatsheet(item.slug) 
                     ? Icon.Box 
                     : Icon.Globe,
                   tooltip: item.type === "custom" 
-                    ? "Custom Cheatsheet" 
+                    ? "Custom" 
                     : item.type === "repository" 
-                    ? "Repository Cheatsheet" 
+                    ? "Repository" 
                     : Service.isLocalCheatsheet(item.slug) 
-                    ? "Local Cheatsheet" 
-                    : "Default Cheatsheet",
+                    ? "Local" 
+                    : "Default",
                 },
                 { text: "Recent", icon: Icon.Clock }
               ]}
@@ -610,7 +595,7 @@ function Command() {
             item.type === "custom"
               ? customSheets.find((s) => s.id === item.id)?.iconKey
                 ? Service.iconForKey(customSheets.find((s) => s.id === item.id)!.iconKey!)
-                : Icon.Tag
+                : Icon.Brush
               : item.type === "repository"
               ? githubIcon
               : Service.isLocalCheatsheet(item.slug)
@@ -627,19 +612,19 @@ function Command() {
           accessories={[
             {
               icon: item.type === "custom" 
-                ? Icon.Tag 
+                ? Icon.Brush 
                 : item.type === "repository" 
                 ? githubIcon 
                 : Service.isLocalCheatsheet(item.slug) 
                 ? Icon.Box 
                 : Icon.Globe,
               tooltip: item.type === "custom" 
-                ? "Custom Cheatsheet" 
+                ? "Custom" 
                 : item.type === "repository" 
-                ? "Repository Cheatsheet" 
+                ? "Repository" 
                 : Service.isLocalCheatsheet(item.slug) 
-                ? "Local Cheatsheet" 
-                : "Default Cheatsheet",
+                ? "Local" 
+                : "Default",
             },
             ...(item.isOffline ? [{ icon: Icon.Checkmark, tooltip: "Available Offline" }] : []),
             ...(item.isFavorited ? [{ icon: Icon.Star, tooltip: "Favorited" }] : []),
@@ -840,7 +825,7 @@ function SheetView({ slug }: SheetProps) {
     );
   }
 
-  const processedContent = formatTables(stripTemplateTags(stripFrontmatter(content)));
+  const processedContent = formatHtmlElements(formatTables(stripTemplateTags(stripFrontmatter(content))));
   const isLocal = Service.isLocalCheatsheet(slug);
 
   return (
@@ -1159,7 +1144,7 @@ function RepositorySheetView({ sheet }: { sheet: RepositoryCheatsheet }) {
     Service.recordRepositoryCheatsheetAccess(sheet.repositoryId);
   }, [sheet.repositoryId]);
 
-  const processedContent = formatTables(stripTemplateTags(stripFrontmatter(sheet.content)));
+  const processedContent = formatHtmlElements(formatTables(stripTemplateTags(stripFrontmatter(sheet.content))));
 
   return (
     <Detail
