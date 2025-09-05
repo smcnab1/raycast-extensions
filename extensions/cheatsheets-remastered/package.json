@@ -39,13 +39,6 @@
       "mode": "view"
     },
     {
-      "name": "copy-cheatsheet",
-      "title": "Copy Cheatsheet",
-      "subtitle": "Cheatsheets Remastered",
-      "description": "Search and copy cheatsheet content to clipboard",
-      "mode": "view"
-    },
-    {
       "name": "manage-repos",
       "title": "Repo Manager",
       "subtitle": "Cheatsheets Remastered",
