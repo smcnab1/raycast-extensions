@@ -99,6 +99,9 @@ No cheatsheets found. Use the **Sync Repository** action to fetch cheatsheet fil
             text={repo.owner} 
             icon={{ source: `https://github.com/${repo.owner}.png`, fallback: Icon.Person }}
           />
+          {repo.description && (
+            <Detail.Metadata.Label title="Description" text={repo.description} />
+          )}
           <Detail.Metadata.Separator />
           <Detail.Metadata.Link
             title="URL"
@@ -136,12 +139,6 @@ No cheatsheets found. Use the **Sync Repository** action to fetch cheatsheet fil
             text={cheatsheetsLoading ? "Loading..." : `${cheatsheets.length} found`}
             icon={Icon.Document}
           />
-          {repo.description && (
-            <>
-              <Detail.Metadata.Separator />
-              <Detail.Metadata.Label title="Description" text={repo.description} />
-            </>
-          )}
         </Detail.Metadata>
       }
       actions={
