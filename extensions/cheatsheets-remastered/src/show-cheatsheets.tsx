@@ -197,7 +197,7 @@ function Command() {
         slug: sheet.slug,
         title: sheet.title,
         isOffline,
-        isFavorited: false, // Repository cheatsheets don't support favorites yet
+        isFavorited: favorites.some((fav) => fav.slug === sheet.id && fav.type === "repository"),
         repositoryId: sheet.repositoryId,
         repositoryName: repositoryName,
       });
