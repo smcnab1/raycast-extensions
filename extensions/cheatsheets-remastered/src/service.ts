@@ -1537,7 +1537,7 @@ class Service {
 
   static async updateUserRepository(
     id: string,
-    updates: Partial<Pick<UserRepository, "name" | "owner" | "description" | "url" | "defaultBranch" | "subdirectory">>
+    updates: Partial<Pick<UserRepository, "name" | "owner" | "description" | "url" | "defaultBranch" | "subdirectory" | "lastSyncedAt">>
   ): Promise<UserRepository | null> {
     try {
       const repos = await this.getUserRepositories();
