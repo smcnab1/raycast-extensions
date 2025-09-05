@@ -484,15 +484,6 @@ function Command() {
         </List.Section>
       )}
 
-      {/* Debug section - remove in production */}
-      <List.Section title="Debug" subtitle="Data counts">
-        <List.Item title={`Sheets: ${sheets.length}`} icon={Icon.Document} />
-        <List.Item title={`Custom: ${customSheets.length}`} icon={Icon.Tag} />
-        <List.Item title={`Repository: ${repositorySheets.length}`} icon={githubIcon} />
-        <List.Item title={`Unified: ${unifiedList.length}`} icon={Icon.List} />
-        <List.Item title={`Search Results: ${searchResults.length}`} icon={Icon.MagnifyingGlass} />
-      </List.Section>
-
       {searchResults.length === 0 && !isLoading && !error && (
         <List.EmptyView
           icon={Icon.MagnifyingGlass}
