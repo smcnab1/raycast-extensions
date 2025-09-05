@@ -55,7 +55,7 @@ function useDraftPersistence(key: string, defaultValue: string) {
   return { value, updateValue, clearDraft };
 }
 
-type FilterType = "all" | "custom" | "default" | "repository";
+type FilterType = "all" | "custom" | "default" | "repository" | "favorites";
 
 interface UnifiedCheatsheet {
   id: string;
@@ -246,6 +246,9 @@ function Command() {
         break;
       case "repository":
         typeMatch = item.type === "repository";
+        break;
+      case "favorites":
+        typeMatch = item.isFavorited;
         break;
       default:
         typeMatch = true;
@@ -442,6 +445,7 @@ function Command() {
       searchBarAccessory={
         <List.Dropdown tooltip="Filter" value={filter} onChange={(value) => setFilter(value as FilterType)}>
           <List.Dropdown.Item title="All" value="all" icon={Icon.AppWindowList} />
+          <List.Dropdown.Item title="Favorites" value="favorites" icon={Icon.Star} />
           <List.Dropdown.Item title="Custom" value="custom" icon={Icon.Brush} />
           <List.Dropdown.Item title="Default" value="default" icon={Icon.Box} />
           <List.Dropdown.Item title="GitHub" value="repository" icon={githubIcon} />
