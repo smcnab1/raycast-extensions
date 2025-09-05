@@ -14,6 +14,8 @@ import {
   LocalStorage,
   Clipboard,
   getPreferenceValues,
+  Image,
+  Color,
 } from "@raycast/api";
 import { useEffect, useState } from "react";
 import { showFailureToast, useFrecencySorting } from "@raycast/utils";
@@ -22,7 +24,10 @@ import Service, { CustomCheatsheet, OfflineCheatsheet, FavoriteCheatsheet, Repos
 import type { File as ServiceFile } from "./service";
 import { stripFrontmatter, stripTemplateTags, formatTables } from "./utils";
 // GitHub icon for repository cheatsheets
-const githubIcon = "assets/github.svg";
+const githubIcon: Image.ImageLike = {
+  source: "assets/github.svg",
+  tintColor: "#FFFFFF",
+};
 
 // (removed unused getCheatsheetIcon)
 
