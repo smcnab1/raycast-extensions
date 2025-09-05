@@ -535,7 +535,7 @@ function Command() {
             <List.Item
               key={`recent-${item.id}`}
               title={item.title}
-              subtitle={`${item.type === "custom" ? "Custom" : "Default"}`}
+              subtitle=""
               icon={
                 item.type === "custom"
                   ? customSheets.find((s) => s.id === item.id)?.iconKey
@@ -543,7 +543,25 @@ function Command() {
                     : Icon.Document
                   : Service.resolveIconForSlug(item.slug)
               }
-              accessories={[{ text: "Recent", icon: Icon.Clock }]}
+              accessories={[
+                {
+                  icon: item.type === "custom" 
+                    ? Icon.Tag 
+                    : item.type === "repository" 
+                    ? Icon.Code 
+                    : Service.isLocalCheatsheet(item.slug) 
+                    ? Icon.Box 
+                    : Icon.Globe,
+                  tooltip: item.type === "custom" 
+                    ? "Custom Cheatsheet" 
+                    : item.type === "repository" 
+                    ? "Repository Cheatsheet" 
+                    : Service.isLocalCheatsheet(item.slug) 
+                    ? "Local Cheatsheet" 
+                    : "Default Cheatsheet",
+                },
+                { text: "Recent", icon: Icon.Clock }
+              ]}
               actions={
                 <ActionPanel>
                   <Action.Push
@@ -570,11 +588,10 @@ function Command() {
           title={item.title}
           subtitle={
             item.type === "custom"
-              ? customSheets.find((s) => s.id === item.id)?.description || "Custom"
+              ? customSheets.find((s) => s.id === item.id)?.description || ""
               : item.type === "repository"
-              ? `Repository: ${item.repositoryName || "Unknown"}`
-              : Service.getDefaultMetadata(item.slug)?.description ||
-                (Service.isLocalCheatsheet(item.slug) ? "Local" : "Default")
+              ? item.repositoryName || ""
+              : Service.getDefaultMetadata(item.slug)?.description || ""
           }
           icon={
             item.type === "custom"
@@ -594,26 +611,21 @@ function Command() {
           }
           accessories={[
             {
-              text: item.type === "custom" 
-                ? "Custom" 
-                : item.type === "repository" 
-                ? "Repository" 
-                : Service.isLocalCheatsheet(item.slug) 
-                ? "Local" 
-                : "Default",
               icon: item.type === "custom" 
                 ? Icon.Tag 
                 : item.type === "repository" 
                 ? Icon.Code 
                 : Service.isLocalCheatsheet(item.slug) 
-                ? Icon.Document 
+                ? Icon.Box 
                 : Icon.Globe,
+              tooltip: item.type === "custom" 
+                ? "Custom Cheatsheet" 
+                : item.type === "repository" 
+                ? "Repository Cheatsheet" 
+                : Service.isLocalCheatsheet(item.slug) 
+                ? "Local Cheatsheet" 
+                : "Default Cheatsheet",
             },
-            ...(item.type === "custom"
-              ? (customSheets.find((s) => s.id === item.id)?.tags || []).slice(0, 3).map((t) => ({ text: t }))
-              : item.type === "repository"
-              ? ["repository", "github"].slice(0, 3).map((t) => ({ text: t }))
-              : (Service.getDefaultMetadata(item.slug)?.tags || []).slice(0, 3).map((t) => ({ text: t }))),
             ...(item.isOffline ? [{ icon: Icon.Checkmark, tooltip: "Available Offline" }] : []),
             ...(item.isFavorited ? [{ icon: Icon.Star, tooltip: "Favorited" }] : []),
           ]}
