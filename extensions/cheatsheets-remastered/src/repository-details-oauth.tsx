@@ -90,8 +90,16 @@ No cheatsheets found. Use the **Sync Repository** action to fetch cheatsheet fil
       markdown={cheatsheetsMarkdown}
       metadata={
         <Detail.Metadata>
-          <Detail.Metadata.Label title="Repository" text={repo.name} />
-          <Detail.Metadata.Label title="Owner" text={repo.owner} />
+          <Detail.Metadata.Label 
+            title="Repository" 
+            text={repo.name} 
+            icon={{ source: `https://github.com/${repo.owner}.png`, fallback: Icon.Box }}
+          />
+          <Detail.Metadata.Label 
+            title="Owner" 
+            text={repo.owner} 
+            icon={{ source: `https://github.com/${repo.owner}.png`, fallback: Icon.Person }}
+          />
           <Detail.Metadata.Separator />
           <Detail.Metadata.Link
             title="URL"

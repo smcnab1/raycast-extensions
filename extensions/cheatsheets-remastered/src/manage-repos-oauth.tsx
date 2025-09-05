@@ -5,6 +5,8 @@ import { withAccessToken, getAccessToken } from "@raycast/utils";
 import Service, { UserRepository } from "./service";
 import { showFailureToast } from "@raycast/utils";
 import { githubOAuth } from "./github-oauth";
+import { AddRepositoryForm } from "./add-repository-form";
+import { RepositoryDetailsWithAuth } from "./repository-details-oauth";
 
 function ManageReposWithAuth() {
   const [repos, setRepos] = useState<UserRepository[]>([]);
@@ -99,9 +101,9 @@ function ManageReposWithAuth() {
             key={repo.id}
             title={repo.name}
             subtitle={repo.description || `${repo.owner}/${repo.name}`}
-            icon={repo.isPrivate ? Icon.Lock : Icon.Box}
+            icon={{ source: `https://github.com/${repo.owner}.png`, fallback: repo.isPrivate ? Icon.Lock : Icon.Box }}
             accessories={[
-              { text: repo.owner, icon: Icon.Person },
+              { text: repo.owner, icon: { source: `https://github.com/${repo.owner}.png`, fallback: Icon.Person } },
               { text: repo.defaultBranch, icon: Icon.Code },
               ...(repo.subdirectory ? [{ text: repo.subdirectory, icon: Icon.Folder }] : []),
               ...(repo.lastSyncedAt ? [{ date: new Date(repo.lastSyncedAt), icon: Icon.ArrowClockwise }] : []),
@@ -164,9 +166,7 @@ function ManageReposWithAuth() {
 }
 
 // Import the components we need
-import { AddRepositoryForm } from "./add-repository-form";
 import { EditRepositoryForm } from "./edit-repository-form";
-import { RepositoryDetailsWithAuth } from "./repository-details-oauth";
 
 // Export the OAuth-wrapped component
 export default withAccessToken(githubOAuth)(ManageReposWithAuth);
