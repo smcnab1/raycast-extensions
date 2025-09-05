@@ -21,6 +21,8 @@ import { showFailureToast, useFrecencySorting } from "@raycast/utils";
 import Service, { CustomCheatsheet, OfflineCheatsheet, FavoriteCheatsheet, RepositoryCheatsheet } from "./service";
 import type { File as ServiceFile } from "./service";
 import { stripFrontmatter, stripTemplateTags, formatTables } from "./utils";
+// GitHub icon for repository cheatsheets
+const githubIcon = "assets/github.svg";
 
 // (removed unused getCheatsheetIcon)
 
@@ -532,7 +534,7 @@ function Command() {
                     ? Service.iconForKey(customSheets.find((s) => s.id === item.id)!.iconKey!)
                     : Icon.Tag
                   : item.type === "repository"
-                  ? Icon.Code
+                  ? githubIcon
                   : Service.isLocalCheatsheet(item.slug)
                   ? Icon.Box
                   : Icon.Globe
@@ -542,7 +544,7 @@ function Command() {
                   icon: item.type === "custom" 
                     ? Icon.Tag 
                     : item.type === "repository" 
-                    ? Icon.Code 
+                    ? githubIcon 
                     : Service.isLocalCheatsheet(item.slug) 
                     ? Icon.Box 
                     : Icon.Globe,
@@ -593,7 +595,7 @@ function Command() {
                 ? Service.iconForKey(customSheets.find((s) => s.id === item.id)!.iconKey!)
                 : Icon.Tag
               : item.type === "repository"
-              ? Icon.Code
+              ? githubIcon
               : Service.isLocalCheatsheet(item.slug)
               ? Icon.Box
               : Icon.Globe
@@ -610,7 +612,7 @@ function Command() {
               icon: item.type === "custom" 
                 ? Icon.Tag 
                 : item.type === "repository" 
-                ? Icon.Code 
+                ? githubIcon 
                 : Service.isLocalCheatsheet(item.slug) 
                 ? Icon.Box 
                 : Icon.Globe,
