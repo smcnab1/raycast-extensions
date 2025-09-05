@@ -424,7 +424,7 @@ function Command() {
             <List.Dropdown.Item title="All" value="all" />
             <List.Dropdown.Item title="Custom" value="custom" />
             <List.Dropdown.Item title="Default" value="default" />
-            <List.Dropdown.Item title="Repository" value="repository" />
+            <List.Dropdown.Item title="GitHub" value="repository" />
           </List.Dropdown>
           <List.Dropdown
             tooltip="Sort"
