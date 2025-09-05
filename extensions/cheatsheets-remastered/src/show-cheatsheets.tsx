@@ -1152,13 +1152,38 @@ function CreateCustomSheetForm({ onCreated }: CreateCustomSheetProps) {
 function RepositorySheetView({ sheet }: { sheet: RepositoryCheatsheet }) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [repository, setRepository] = useState<{ owner: string; name: string; defaultBranch: string } | null>(null);
 
   useEffect(() => {
     // Record view for repository sheet
     Service.recordRepositoryCheatsheetAccess(sheet.repositoryId);
+    
+    // Fetch repository information
+    const fetchRepository = async () => {
+      try {
+        const userRepos = await Service.getUserRepositories();
+        const repo = userRepos.find(r => r.id === sheet.repositoryId);
+        if (repo) {
+          setRepository({
+            owner: repo.owner,
+            name: repo.name,
+            defaultBranch: repo.defaultBranch
+          });
+        }
+      } catch (err) {
+        console.error('Failed to fetch repository info:', err);
+      }
+    };
+    
+    fetchRepository();
   }, [sheet.repositoryId]);
 
   const processedContent = formatHtmlElements(formatTables(stripTemplateTags(stripFrontmatter(sheet.content))));
+
+  // Construct GitHub URL for the file
+  const githubUrl = repository 
+    ? `https://github.com/${repository.owner}/${repository.name}/blob/${repository.defaultBranch}/${sheet.filePath}`
+    : null;
 
   return (
     <Detail
@@ -1168,8 +1193,19 @@ function RepositorySheetView({ sheet }: { sheet: RepositoryCheatsheet }) {
       metadata={
         <Detail.Metadata>
           <Detail.Metadata.Label title="Title" text={sheet.title} />
-          <Detail.Metadata.Label title="Repository" text={sheet.repositoryId} />
-          <Detail.Metadata.Label title="File Path" text={sheet.filePath} />
+          <Detail.Metadata.Label 
+            title="Repository" 
+            text={repository ? `${repository.owner}/${repository.name}` : sheet.repositoryId} 
+          />
+          {githubUrl ? (
+            <Detail.Metadata.Link
+              title="File Path"
+              target={githubUrl}
+              text={sheet.filePath}
+            />
+          ) : (
+            <Detail.Metadata.Label title="File Path" text={sheet.filePath} />
+          )}
           <Detail.Metadata.Label 
             title="Synced" 
             text={new Date(sheet.syncedAt).toLocaleDateString()} 
@@ -1186,6 +1222,20 @@ function RepositorySheetView({ sheet }: { sheet: RepositoryCheatsheet }) {
       }
       actions={
         <ActionPanel>
+          {githubUrl && (
+            <ActionPanel.Section title="GitHub">
+              <Action.OpenInBrowser
+                title="View on GitHub"
+                url={githubUrl}
+                icon={Icon.Globe}
+              />
+              <Action.CopyToClipboard
+                title="Copy GitHub URL"
+                content={githubUrl}
+                icon={Icon.Clipboard}
+              />
+            </ActionPanel.Section>
+          )}
           <ActionPanel.Section title="Actions">
             <Action.CopyToClipboard 
               title="Copy Content" 
