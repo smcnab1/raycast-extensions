@@ -31,6 +31,70 @@ function ManageReposWithAuth() {
     }
   }
 
+  async function handleSyncAllRepos() {
+    if (!token) {
+      showToast({
+        style: Toast.Style.Failure,
+        title: "Authentication Required",
+        message: "Please authenticate with GitHub first",
+      });
+      return;
+    }
+
+    const confirmed = await confirmAlert({
+      title: "Sync All Repositories",
+      message: `Are you sure you want to sync all ${repos.length} repositories? This may take a while.`,
+      primaryAction: {
+        title: "Sync All",
+        style: Alert.ActionStyle.Default,
+      },
+    });
+
+    if (!confirmed) return;
+
+    try {
+      setIsLoading(true);
+      showToast({
+        style: Toast.Style.Animated,
+        title: "Syncing All Repositories",
+        message: `Starting sync for ${repos.length} repositories...`,
+      });
+
+      let totalSuccess = 0;
+      let totalFailed = 0;
+      const results = [];
+
+      for (const repo of repos) {
+        try {
+          const result = await Service.syncRepositoryFiles(repo, token);
+          totalSuccess += result.success;
+          totalFailed += result.failed;
+          results.push({ repo: `${repo.owner}/${repo.name}`, success: result.success, failed: result.failed });
+        } catch (error) {
+          totalFailed++;
+          results.push({ repo: `${repo.owner}/${repo.name}`, success: 0, failed: 1, error: error.message });
+          console.warn(`Failed to sync ${repo.owner}/${repo.name}:`, error);
+        }
+      }
+
+      // Reload repositories to update lastSyncedAt timestamps
+      await loadRepos();
+
+      showToast({
+        style: Toast.Style.Success,
+        title: "Sync Complete",
+        message: `Synced ${totalSuccess} cheatsheets from ${repos.length} repositories${totalFailed > 0 ? ` (${totalFailed} failed)` : ''}`,
+      });
+
+      // Log detailed results
+      console.log("Sync All Results:", results);
+    } catch (error) {
+      showFailureToast(error, { title: "Failed to sync all repositories" });
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   async function handleDeleteRepo(id: string, name: string, owner: string) {
     const confirmed = await confirmAlert({
       title: "Remove Repository",
@@ -68,6 +132,12 @@ function ManageReposWithAuth() {
         <ActionPanel>
           <Action title="Refresh" icon={Icon.ArrowClockwise} onAction={loadRepos} />
           <Action
+            title="Sync All Repositories"
+            icon={Icon.ArrowClockwise}
+            shortcut={{ modifiers: ["cmd", "shift"], key: "s" }}
+            onAction={handleSyncAllRepos}
+          />
+          <Action
             title="Add Repository"
             icon={Icon.Plus}
             shortcut={{ modifiers: ["cmd"], key: "n" }}
@@ -87,6 +157,11 @@ function ManageReposWithAuth() {
           actions={
             <ActionPanel>
               <Action title="Refresh" icon={Icon.ArrowClockwise} onAction={loadRepos} />
+              <Action
+                title="Sync All Repositories"
+                icon={Icon.ArrowClockwise}
+                onAction={handleSyncAllRepos}
+              />
               <Action
                 title="Add Repository"
                 icon={Icon.Plus}
@@ -140,6 +215,12 @@ function ManageReposWithAuth() {
                         showFailureToast(error, { title: "Failed to sync repository" });
                       }
                     }}
+                  />
+                  <Action
+                    title="Sync All Repositories"
+                    icon={Icon.ArrowClockwise}
+                    shortcut={{ modifiers: ["cmd", "shift"], key: "s" }}
+                    onAction={handleSyncAllRepos}
                   />
                 </ActionPanel.Section>
                 <ActionPanel.Section title="Manage">
