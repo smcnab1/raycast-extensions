@@ -44,6 +44,13 @@
       "subtitle": "Cheatsheets Remastered",
       "description": "Search and copy cheatsheet content to clipboard",
       "mode": "view"
+    },
+    {
+      "name": "manage-repos",
+      "title": "Repos Manager",
+      "subtitle": "Cheatsheets Remastered",
+      "description": "Manage user-specified repositories (list, add, remove)",
+      "mode": "view"
     }
   ],
   "preferences": [

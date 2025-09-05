@@ -43,6 +43,18 @@ interface ViewRecord {
   lastViewedAt: number;
 }
 
+interface UserRepository {
+  id: string;
+  name: string;
+  owner: string;
+  description?: string;
+  url: string;
+  addedAt: number;
+  lastAccessedAt?: number;
+  isPrivate: boolean;
+  defaultBranch: string;
+}
+
 // Configure axios with better defaults and retry logic
 const listClient = axios.create({
   baseURL: `https://api.github.com/repos/${OWNER}/${REPO}/git/trees`,
@@ -1325,6 +1337,165 @@ class Service {
       throw error;
     }
   }
+
+  // Repository management methods
+  static async getUserRepositories(): Promise<UserRepository[]> {
+    try {
+      const reposJson = await LocalStorage.getItem<string>("user-repositories");
+      return reposJson ? JSON.parse(reposJson) : [];
+    } catch (error) {
+      console.warn("Failed to load user repositories:", error);
+      return [];
+    }
+  }
+
+  static async addUserRepository(
+    name: string,
+    owner: string,
+    description?: string,
+    url?: string,
+    isPrivate: boolean = false,
+    defaultBranch: string = "main"
+  ): Promise<UserRepository> {
+    try {
+      // Validate input
+      if (!name.trim() || !owner.trim()) {
+        throw new Error("Repository name and owner are required");
+      }
+
+      const repos = await this.getUserRepositories();
+      
+      // Check if repository already exists
+      const existingRepo = repos.find(
+        (repo) => repo.name.toLowerCase() === name.toLowerCase() && repo.owner.toLowerCase() === owner.toLowerCase()
+      );
+
+      if (existingRepo) {
+        throw new Error("Repository already exists in your list");
+      }
+
+      const newRepo: UserRepository = {
+        id: `repo-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        name: name.trim(),
+        owner: owner.trim(),
+        description: description?.trim(),
+        url: url?.trim() || `https://github.com/${owner}/${name}`,
+        addedAt: Date.now(),
+        isPrivate,
+        defaultBranch: defaultBranch.trim() || "main",
+      };
+
+      repos.push(newRepo);
+      await LocalStorage.setItem("user-repositories", JSON.stringify(repos));
+
+      showToast({
+        style: Toast.Style.Success,
+        title: "Repository Added",
+        message: `${owner}/${name} has been added to your repositories`,
+      });
+
+      return newRepo;
+    } catch (error) {
+      console.error("Failed to add repository:", error);
+      throw error;
+    }
+  }
+
+  static async removeUserRepository(id: string): Promise<boolean> {
+    try {
+      const repos = await this.getUserRepositories();
+      const filteredRepos = repos.filter((repo) => repo.id !== id);
+
+      if (filteredRepos.length === repos.length) {
+        return false; // Repository not found
+      }
+
+      await LocalStorage.setItem("user-repositories", JSON.stringify(filteredRepos));
+
+      showToast({
+        style: Toast.Style.Success,
+        title: "Repository Removed",
+        message: "Repository has been removed from your list",
+      });
+
+      return true;
+    } catch (error) {
+      console.error("Failed to remove repository:", error);
+      throw error;
+    }
+  }
+
+  static async updateUserRepository(
+    id: string,
+    updates: Partial<Pick<UserRepository, "name" | "owner" | "description" | "url" | "defaultBranch">>
+  ): Promise<UserRepository | null> {
+    try {
+      const repos = await this.getUserRepositories();
+      const index = repos.findIndex((repo) => repo.id === id);
+
+      if (index === -1) return null;
+
+      repos[index] = {
+        ...repos[index],
+        ...updates,
+        updatedAt: Date.now(),
+      };
+
+      await LocalStorage.setItem("user-repositories", JSON.stringify(repos));
+
+      showToast({
+        style: Toast.Style.Success,
+        title: "Repository Updated",
+        message: "Repository details have been updated",
+      });
+
+      return repos[index];
+    } catch (error) {
+      console.error("Failed to update repository:", error);
+      throw error;
+    }
+  }
+
+  static async getUserRepository(id: string): Promise<UserRepository | null> {
+    try {
+      const repos = await this.getUserRepositories();
+      return repos.find((repo) => repo.id === id) || null;
+    } catch (error) {
+      console.error("Failed to get repository:", error);
+      return null;
+    }
+  }
+
+  static async recordRepositoryAccess(id: string): Promise<void> {
+    try {
+      const repos = await this.getUserRepositories();
+      const index = repos.findIndex((repo) => repo.id === id);
+
+      if (index !== -1) {
+        repos[index].lastAccessedAt = Date.now();
+        await LocalStorage.setItem("user-repositories", JSON.stringify(repos));
+      }
+    } catch (error) {
+      console.warn("Failed to record repository access:", error);
+    }
+  }
+
+  static async searchUserRepositories(query: string): Promise<UserRepository[]> {
+    try {
+      const repos = await this.getUserRepositories();
+      const lowerQuery = query.toLowerCase();
+
+      return repos.filter(
+        (repo) =>
+          repo.name.toLowerCase().includes(lowerQuery) ||
+          repo.owner.toLowerCase().includes(lowerQuery) ||
+          repo.description?.toLowerCase().includes(lowerQuery)
+      );
+    } catch (error) {
+      console.error("Failed to search repositories:", error);
+      return [];
+    }
+  }
 }
 
 // Helper function to get sheets from files
@@ -1343,4 +1514,4 @@ function getSheets(files: File[]): string[] {
 }
 
 export default Service;
-export type { File, CustomCheatsheet, Preferences, OfflineCheatsheet, FavoriteCheatsheet };
+export type { File, CustomCheatsheet, Preferences, OfflineCheatsheet, FavoriteCheatsheet, UserRepository };
